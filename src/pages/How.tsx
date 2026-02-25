@@ -4,6 +4,10 @@ import ArrowLeft from '../assets/arrow-left.svg';
 import ArrowRight from '../assets/arrow-right.svg';
 import ArrowUp from '../assets/arrow-up.svg';
 import ArrowDown from '../assets/arrow-down.svg';
+import ArrowLeftMuted from '../assets/arrow-left-muted.svg';
+import ArrowRightMuted from '../assets/arrow-right-muted.svg';
+import ArrowUpMuted from '../assets/arrow-up-muted.svg';
+import ArrowDownMuted from '../assets/arrow-down-muted.svg';
 
 // Import Illustrations
 import IntrebareSvg from '../assets/intrebare.svg';
@@ -55,7 +59,7 @@ const CARDS_DATA = [
   },
 ];
 
-const ARROWS = [ArrowLeft, ArrowRight, ArrowUp, ArrowDown];
+const ARROWS = [ArrowLeftMuted, ArrowRightMuted, ArrowUpMuted, ArrowDownMuted];
 
 export default function How() {
   const { openMenu } = useOutletContext<MainLayoutContextType>();
@@ -115,7 +119,7 @@ export default function How() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-20">
+    <div className="flex flex-col gap-20 pb-40">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
         <div className="flex items-center justify-between pb-6 w-full max-w-[50vw] mx-auto">
@@ -135,16 +139,16 @@ export default function How() {
           </Link>
         </div>
         
-        <p className="typo-leading-p text-palette-5 max-w-4xl">
+        <p className="typo-leading-p text-palette-5 max-w-[60vw] pt-8">
           Atelierele de filosofie practică oferă un spațiu structurat în care oamenii produc idei, interoghează presupoziții, argumentează poziții diferite și problematizează certitudini.
         </p>
       </div>
 
       {/* Section 1: Memory Game */}
-      <section className="flex flex-col gap-8 w-full">
-        <h2 className="typo-h2 text-palette-5">Instrumente de practică filosofică</h2>
+      <section className="flex flex-col gap-8 w-full pt-8 pb-10">
+        <h2 className="typo-h2 text-palette-5 pb-6">Instrumente de practică filosofică</h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-5 border-t border-l border-[#E7E7E7]">
+        <div className="grid grid-cols-2 md:grid-cols-5 border-t border-l border-[#C9C9C9]">
           {cards.map((card, index) => {
             const isFlipped = flippedIndices.includes(index);
             const isMatched = matchedNames.includes(card.name);
@@ -155,7 +159,7 @@ export default function How() {
                 key={card.id}
                 onClick={() => handleCardClick(index)}
                 className={`
-                  aspect-square border-r border-b border-[#E7E7E7] p-4 flex flex-col justify-between items-center text-center cursor-pointer transition-colors duration-300 group
+                  aspect-square border-r border-b border-[#C9C9C9] p-4 flex flex-col justify-between items-center text-center cursor-pointer transition-colors duration-300 group
                   ${showContent ? 'bg-white' : 'bg-[#F5F3F1] hover:bg-white'}
                 `}
               >
@@ -164,7 +168,7 @@ export default function How() {
                     <div className="flex-grow flex items-center justify-center w-full">
                       <img src={card.image} alt={card.name} className="w-1/2 h-1/2 object-contain" />
                     </div>
-                    <p className="typo-caption text-black mt-2">
+                    <p className="typo-p text-black mt-2">
                       {isMatched ? card.name : "Găsește perechea pentru a afla detalii"}
                     </p>
                   </>
@@ -177,7 +181,7 @@ export default function How() {
                         className="w-6 h-6 text-[#A1A1A1] transition-transform duration-300 group-hover:rotate-90" 
                       />
                     </div>
-                    <p className="typo-caption text-[#A1A1A1] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <p className="typo-p text-black opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       Descoperă care este instrumentul filosofic
                     </p>
                   </>
@@ -190,26 +194,46 @@ export default function How() {
 
       {/* Overlay */}
       {overlayCard && (
-        <div className="fixed inset-0 z-50 bg-black text-white flex items-center justify-center p-4">
-          <div className="relative max-w-2xl w-full flex flex-col items-center text-center gap-8">
-            <button 
-              onClick={() => setOverlayCard(null)}
-              className="absolute -top-12 right-0 md:-right-12 text-white hover:opacity-70 transition-opacity"
+        <div className="fixed inset-0 z-[9999] bg-black text-white">
+          {/* Close button */}
+          <button 
+            onClick={() => setOverlayCard(null)}
+            className="absolute top-6 right-6 text-white hover:opacity-70 transition-opacity"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 stroke-current"
             >
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 stroke-current">
-                <path d="M18 6L6 18M6 6L18 18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            
-            <img src={overlayCard.image} alt={overlayCard.name} className="w-32 h-32 object-contain invert brightness-0" />
-            <h2 className="typo-h2">{overlayCard.name}</h2>
-            <p className="typo-leading-p">{overlayCard.description}</p>
+              <path
+                d="M18 6L6 18M6 6L18 18"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Content */}
+          <div className="h-full w-full flex items-center">
+            <div className="max-w-3xl w-full mx-6 md:mx-20 flex flex-col gap-6">
+              <img
+                src={overlayCard.image}
+                alt={overlayCard.name}
+                className="w-16 h-16 object-contain invert brightness-0"
+              />
+              <h2 className="typo-h2">{overlayCard.name}</h2>
+              <p className="typo-leading-p max-w-[60vw]">
+                {overlayCard.description}
+              </p>
+            </div>
           </div>
         </div>
       )}
 
       {/* Section 2: Cum decurge un salon */}
-      <section className="flex flex-col lg:flex-row gap-12 w-full border-t border-[#C9C9C9] pt-12">
+      <section className="flex flex-col lg:flex-row gap-12 w-full pt-12">
         <div className="flex flex-col gap-6 lg:w-1/2">
           <h2 className="typo-h2 text-palette-5">Cum decurge un salon</h2>
           <p className="typo-leading-p text-palette-5">
@@ -217,15 +241,15 @@ export default function How() {
           </p>
         </div>
         
-        <div className="lg:w-1/2 min-h-[400px]">
-          <iframe 
-            style={{ borderRadius: '12px' }} 
-            src="https://open.spotify.com/embed/playlist/37i9dQZF1DX0SM0LYsmbMT?utm_source=generator" 
-            width="100%" 
-            height="100%" 
-            frameBorder="0" 
-            allowFullScreen 
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+        <div className="lg:w-1/2">
+          <iframe
+          data-testid="embed-iframe"
+            style={{ borderRadius: '12px' }}
+            src="https://open.spotify.com/embed/playlist/5CARCshGsSX3dfBlccFF7o?utm_source=generator&theme=0"
+            width="100%"
+            height="352"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
           ></iframe>
         </div>

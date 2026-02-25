@@ -14,10 +14,10 @@ export default function Etiquette() {
   const { openMenu } = useOutletContext<MainLayoutContextType>();
 
   return (
-    <div className="flex flex-col gap-20 pb-20">
+    <div className="flex flex-col gap-20 pb-40">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between pb-6 w-full max-w-[50vw] mx-auto">
+        <div className="flex items-center justify-between pb-10 w-full max-w-[50vw] mx-auto">
           <Link to="/how" className="p-2 hover:opacity-70 transition-opacity">
             <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
           </Link>
@@ -34,7 +34,7 @@ export default function Etiquette() {
           </Link>
         </div>
         
-        <p className="typo-leading-p text-palette-5 max-w-4xl">
+        <p className="typo-leading-p text-palette-5 max-w-4xl pb-8">
           Saloanele socratice sunt menite să nutrească dialoguri cu sens. Acest scop ne aduce împreună – calea către dialog începe cu o participare.
         </p>
       </div>
@@ -104,8 +104,8 @@ export default function Etiquette() {
         </div>
       </section>
 
-      {/* Section 2: Whatsapp Join (Reused) */}
-      <section className="border-t border-[#C9C9C9] pt-12 flex flex-col gap-12">
+      {/* Section 2: Whatsapp Join */}
+      <section className="pt-12 flex flex-col gap-12 mt-20">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Alătură-te conversației</h2>
           <p className="typo-leading-p text-palette-5">
@@ -113,7 +113,7 @@ export default function Etiquette() {
           </p>
         </div>
 
-        <div className="w-full border-y border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
+        <div className="w-[30vw] border border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
           <a 
             href="https://chat.whatsapp.com/your-group-link" // Placeholder link
             target="_blank" 

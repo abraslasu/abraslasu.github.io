@@ -86,10 +86,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Section 3: Lozul Filozofic */}
+      {/* Section 3: Lozul Filosofic */}
       <section className="flex flex-col gap-12 mt-20">
         <div className="flex flex-col gap-4">
-          <h2 className="typo-h2 text-palette-5">Lozul Filozofic</h2>
+          <h2 className="typo-h2 text-palette-5">Lozul Filosofic</h2>
           <p className="typo-leading-p text-palette-5">Încearcă-ți norocul la înțelepciune!</p>
         </div>
         
@@ -97,7 +97,7 @@ export default function Home() {
           <div className="w-full">
             <img 
               src={LozPng} 
-              alt="Lozul Filozofic" 
+              alt="Lozul Filosofic" 
               className="w-full h-auto object-contain max-h-[500px]" 
             />
           </div>

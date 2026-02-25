@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, Outlet, useOutletContext } from 'react-router-dom';
 import ArrowLeft from '../assets/arrow-left.svg';
 import ArrowRight from '../assets/arrow-right.svg';
 import WhatsappPng from '../assets/whatsapp.png'; // Reusing for the "Load More" button style
@@ -40,7 +40,7 @@ export default function Articles() {
         
         {/* Page Title & Navigation */}
         <div className="flex flex-col gap-8">
-          <div className="flex items-center justify-between max-w-[50vw] pb-6">
+          <div className="flex items-center justify-between max-w-[50vw] pb-10">
             <Link to="/etiquette" className="p-2 hover:opacity-70 transition-opacity">
               <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
             </Link>
@@ -57,7 +57,7 @@ export default function Articles() {
             </Link>
           </div>
           
-          <p className="typo-leading-p text-palette-5 text-center">
+          <p className="typo-leading-p text-palette-5 text-center pb-10">
             Note și amprente ale saloanelor socratice
           </p>
         </div>
@@ -65,7 +65,10 @@ export default function Articles() {
         {/* Articles List */}
         <div className="flex flex-col">
           {articles.map((article) => (
-            <div key={article.id} className="border-t border-[#C9C9C9] py-8 flex flex-col gap-2 group">
+            <div
+              key={article.id}
+              className="border-t border-[#C9C9C9] py-8 pl-4 flex flex-col gap-2 group transition-colors hover:bg-white"
+            >
               <Link to={`/articles/${article.id}`} className="block">
                 <h3 className="typo-h3 text-black group-hover:opacity-70 transition-opacity">
                   {article.title}
@@ -94,6 +97,9 @@ export default function Articles() {
             </button>
           </div>
         )}
+
+        {/* Article Detail Overlay Outlet */}
+        <Outlet />
 
       </div>
     </div>

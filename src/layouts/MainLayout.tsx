@@ -23,6 +23,11 @@ export default function MainLayout() {
   const closeMenu = () => setIsMenuOpen(false);
 
   useEffect(() => {
+    // Always scroll to top on route change
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  useEffect(() => {
     const updateFooterHeight = () => {
       const footer = document.getElementById('app-footer');
       if (footer) {
@@ -55,7 +60,7 @@ export default function MainLayout() {
 
       {/* Main Content Wrapper with Background to cover Footer */}
       <div 
-        className="relative z-10 bg-palette-1 w-full shadow-xl"
+        className="relative z-10 bg-palette-1 w-full"
         style={{ marginBottom: `${footerHeight}px` }}
       >
         <main 

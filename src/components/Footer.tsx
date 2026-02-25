@@ -52,6 +52,10 @@ export default function Footer() {
   const location = useLocation();
   const config = FOOTER_CONFIG[location.pathname] || DEFAULT_CONFIG;
 
+  const handleBigFooterLinkClick = () => {
+    window.scrollTo(0, 0);
+  };
+
   if (config.type === 'big') {
     return (
       <footer 
@@ -77,6 +81,7 @@ export default function Footer() {
             <div className="w-[33vw] flex flex-col items-center">
               <Link 
                 to={config.linkTo || '/'} 
+                onClick={handleBigFooterLinkClick}
                 className="group w-full pt-6 border-t border-[#E7E7E7] flex items-center justify-between hover:opacity-80 transition-opacity"
               >
                 <span className="typo-h2 text-white">{config.linkText}</span>
@@ -109,7 +114,7 @@ export default function Footer() {
     >
       <div className="w-full flex justify-center">
         <div 
-          className="w-[33vw] border-t border-[#C9C9C9] text-center"
+          className="w-[50vw] border-t border-[#C9C9C9] text-center"
           style={{ paddingTop: 'var(--fluid-16-16)' }}
         >
           <p className="typo-caption text-[#A1A1A1] uppercase">{config.caption}</p>

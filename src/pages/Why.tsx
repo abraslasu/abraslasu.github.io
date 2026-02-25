@@ -209,7 +209,7 @@ export default function Why() {
           onClick={openMenu}
           className="typo-h2 text-center hover:opacity-70 transition-opacity"
         >
-          De ce filozofie practică?
+          De ce filosofie practică?
         </button>
 
         <Link to="/how" className="p-2 hover:opacity-70 transition-opacity">

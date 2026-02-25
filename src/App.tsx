@@ -22,8 +22,9 @@ export default function App() {
           <Route path="why" element={<Why />} />
           <Route path="how" element={<How />} />
           <Route path="etiquette" element={<Etiquette />} />
-          <Route path="articles" element={<Articles />} />
-          <Route path="articles/:id" element={<ArticleDetail />} />
+          <Route path="articles" element={<Articles />}>
+            <Route path=":id" element={<ArticleDetail />} />
+          </Route>
           <Route path="styleguide" element={<Styleguide />} />
         </Route>
       </Routes>
