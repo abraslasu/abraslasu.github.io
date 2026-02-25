@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import ArrowLeft from '../assets/arrow-left.svg';
-import ArrowRight from '../assets/arrow-right.svg';
-import FilosofPng from '../assets/filosof.png';
+import ArrowLeft from '/assets/arrow-left.svg';
+import ArrowRight from '/assets/arrow-right.svg';
+import FilosofPng from '/assets/filosof.png';
 
 // Define the context type locally since we can't import it easily without circular deps or moving types
 type MainLayoutContextType = {
@@ -195,7 +195,7 @@ export default function Why() {
             </div>
 
             {/* Column 2 (Image) */}
-            <div className="border-t border-[#C9C9C9] lg:border-t-0 lg:border-x flex items-center justify-center bg-[#F5F3F1] p-6">
+            <div className="border-t border-[#C9C9C9] lg:border-t-0 flex items-center justify-center bg-[#F5F3F1] p-6">
               <img 
                 src={FilosofPng} 
                 alt="Filosoful" 
