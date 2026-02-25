@@ -73,49 +73,51 @@ export default function Header({ isMenuOpen, toggleMenu, closeMenu }: HeaderProp
         }`}
       >
         {/* Close Button (Top Right) */}
-        <div 
-          className="absolute top-0 right-0"
-          style={{ padding: 'var(--fluid-20-45)' }}
-        >
+        <div className="absolute top-8 right-8 z-50">
           <button
             onClick={closeMenu}
-            className="text-[#444444] hover:opacity-70 transition-opacity focus:outline-none"
+            className="text-white/50 hover:text-white transition-colors focus:outline-none"
             aria-label="Close menu"
           >
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 stroke-current">
-              <path d="M18 6L6 18M6 6L18 18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>
 
         {/* Menu Content (Centered) */}
-        <div className="flex-grow flex flex-col items-center justify-center space-y-8 p-4 text-center">
-          {/* 1. Logo (White) */}
-          <Link to="/" onClick={closeMenu} className="mb-8 hover:opacity-70 transition-opacity">
-             <img src={SymbolFocus} alt="FOCUS Symbol" className="h-12 w-auto invert brightness-0" />
-          </Link>
+        <div className="flex-grow flex flex-col items-center justify-center w-full">
+          {/* Logo */}
+          <div className="mb-12">
+            <Link to="/" onClick={closeMenu} className="block hover:opacity-70 transition-opacity">
+              <img src={SymbolFocus} alt="FOCUS Symbol" className="h-4 w-auto invert brightness-0" />
+            </Link>
+          </div>
 
           {/* Menu Links */}
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={closeMenu}
-              className="typo-h2 text-white hover:text-palette-4 transition-colors"
-            >
-              {item.name}
-            </Link>
-          ))}
+          <div className="w-[33vw] flex flex-col">
+            {menuItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={closeMenu}
+                className="border-t border-white/40 pt-6 pb-9 text-left"
+              >
+                <span className="typo-h2 text-white hover:text-white/70 transition-colors">
+                  {item.name}
+                </span>
+              </Link>
+            ))}
+            {/* Bottom border for the last item */}
+            <div className="border-t border-white/40 w-full"></div>
+          </div>
         </div>
 
-        {/* Small Footer in Menu */}
-        <div className="w-full flex justify-center pb-8">
-          <div 
-            className="w-[33vw] border-t border-[#C9C9C9] text-center"
-            style={{ paddingTop: 'var(--fluid-16-16)' }}
-          >
-            <p className="typo-caption text-[#A1A1A1] uppercase">FOCUS – Saloanele Socratice</p>
-          </div>
+        {/* Footer */}
+        <div className="pb-12 text-center">
+          <p className="typo-caption text-[#666666] uppercase tracking-widest text-[10px]">
+            FOCUS – SALOANELE SOCRATICE
+          </p>
         </div>
       </div>
     </>

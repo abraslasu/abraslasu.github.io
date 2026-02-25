@@ -17,7 +17,7 @@ export default function Etiquette() {
     <div className="flex flex-col gap-20 pb-20">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between border-b border-[#E7E7E7] pb-6">
+        <div className="flex items-center justify-between pb-6 w-full max-w-[33vw] mx-auto">
           <Link to="/how" className="p-2 hover:opacity-70 transition-opacity">
             <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
           </Link>

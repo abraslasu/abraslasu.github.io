@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import ArrowLeft from '../assets/arrow-left.svg';
 import ArrowRight from '../assets/arrow-right.svg';
@@ -43,24 +43,31 @@ const RIGHT_COLUMN_TEXTS = [
 
 function TypingText({ text, onComplete }: { text: string, onComplete?: () => void }) {
   const [displayedText, setDisplayedText] = useState('');
+  const onCompleteRef = useRef(onComplete);
+
+  // Keep ref updated to avoid restarting effect when callback changes
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
   
   useEffect(() => {
-    let index = 0;
+    setDisplayedText('');
+    let localIndex = 0;
+    
     const intervalId = setInterval(() => {
-      setDisplayedText((prev) => {
-        if (index >= text.length) {
-          clearInterval(intervalId);
-          if (onComplete) onComplete();
-          return prev;
-        }
-        const nextChar = text.charAt(index);
-        index++;
-        return prev + nextChar;
-      });
-    }, 30); // Typing speed
+      localIndex++;
+      // Use substring to ensure we display exactly the text up to localIndex
+      // This prevents any character accumulation errors
+      setDisplayedText(text.substring(0, localIndex));
+      
+      if (localIndex >= text.length) {
+        clearInterval(intervalId);
+        if (onCompleteRef.current) onCompleteRef.current();
+      }
+    }, 80); // Slower typing speed (writing imitation)
 
     return () => clearInterval(intervalId);
-  }, [text, onComplete]);
+  }, [text]); // Only restart if text changes
 
   return <span>{displayedText}</span>;
 }
@@ -76,18 +83,18 @@ export default function Why() {
     }
   }, []);
 
-  const handleQuoteComplete = () => {
+  const handleQuoteComplete = useCallback(() => {
     if (visibleQuotesCount < QUOTES.length) {
       setTimeout(() => {
         setVisibleQuotesCount((prev) => prev + 1);
-      }, 1500); // 1.5s delay
+      }, 1000); // 1s delay
     }
-  };
+  }, [visibleQuotesCount]);
 
   return (
-    <div className="flex flex-col gap-20 pb-20">
+    <div className="flex flex-col gap-20 pb-20 pt-32">
       {/* Page Title & Navigation */}
-      <div className="flex items-center justify-between border-b border-[#E7E7E7] pb-6">
+      <div className="flex items-center justify-between w-full max-w-[33vw] mx-auto">
         <Link to="/" className="p-2 hover:opacity-70 transition-opacity">
           <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
         </Link>
@@ -105,33 +112,66 @@ export default function Why() {
       </div>
 
       {/* Section 1: Quotes */}
-      <section className="flex flex-col gap-6 w-full">
-        {QUOTES.slice(0, visibleQuotesCount).map((quote, index) => (
-          <div 
-            key={index}
-            className="bg-white rounded-lg p-6 shadow-sm w-full"
-            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
-          >
-            <p className="typo-p text-black mb-4 min-h-[1.5em]">
-              {index === visibleQuotesCount - 1 ? (
-                <TypingText 
-                  text={quote.text} 
-                  onComplete={handleQuoteComplete} 
-                />
-              ) : (
-                quote.text
-              )}
-            </p>
-            <p className="typo-caption text-[#A1A1A1] uppercase">{quote.name}</p>
-          </div>
-        ))}
+      <section className="relative w-full h-[65vh] overflow-hidden bg-palette-1">
+        {QUOTES.slice(0, visibleQuotesCount).map((quote, index) => {
+          // Generate stable random positions based on index
+          const seed = index * 123.45; 
+          
+          // Calculate positions centered around 35% (moved up)
+          // Range: 25% to 45% for vertical axis
+          // First card (index 0) is exactly in the center
+          let top = 35;
+          let left = 50;
+          let rotate = 0;
+
+          if (index > 0) {
+             // Random spread for subsequent cards
+             // Use sin/cos to distribute around center
+             // Spread X: -10% to +10% (Result: 40% to 60%)
+             // Spread Y: -10% to +10% (Result: 25% to 45%)
+             const spreadX = (Math.sin(seed * 3) * 10); 
+             const spreadY = (Math.cos(seed * 4) * 10); 
+             
+             left = 50 + spreadX;
+             top = 35 + spreadY;
+             rotate = -15 + (Math.abs(Math.sin(seed * 2)) * 30); // -15 to 15 deg
+          } else {
+             // First card slightly rotated but centered
+             rotate = -5 + (Math.abs(Math.sin(seed)) * 10);
+          }
+          
+          return (
+            <div 
+              key={index}
+              className="absolute bg-white p-8 shadow-md w-auto max-w-[33vw] transition-all duration-500"
+              style={{ 
+                top: `${top}%`, 
+                left: `${left}%`, 
+                transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
+                zIndex: index + 10
+              }}
+            >
+              <p className="typo-quote text-black mb-4 min-h-[1.5em]">
+                {index === visibleQuotesCount - 1 ? (
+                  <TypingText 
+                    text={quote.text} 
+                    onComplete={handleQuoteComplete} 
+                  />
+                ) : (
+                  quote.text
+                )}
+              </p>
+              <p className="typo-caption text-[#A1A1A1] uppercase">{quote.name}</p>
+            </div>
+          );
+        })}
       </section>
 
       {/* Section 2: Filosoful practician */}
-      <section className="flex flex-col gap-8 w-full">
+      <section className="flex flex-col gap-16 w-full">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Filosoful practician</h2>
-          <p className="typo-leading-p text-palette-5">
+          <p className="typo-leading-p text-palette-5 max-w-[60vw]">
             Practică arta conversației cu sens. O activitate de exersare intensă a minții, un antrenament constant pentru a se menține în formă mentală bună.
           </p>
         </div>

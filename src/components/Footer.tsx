@@ -56,7 +56,7 @@ export default function Footer() {
     return (
       <footer 
         id="app-footer"
-        className="fixed bottom-0 left-0 w-full z-0 bg-black text-white"
+        className="fixed bottom-0 left-0 w-full z-0 bg-black text-white group"
         style={{ height: '90vh' }}
       >
         {/* Background Image */}
@@ -64,7 +64,7 @@ export default function Footer() {
           <img 
             src={config.image} 
             alt="Footer Background" 
-            className="w-full h-full object-cover opacity-60"
+            className="w-full h-full object-cover opacity-60 grayscale group-hover:grayscale-0 transition-all duration-500"
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-black/20" /> {/* Overlay for contrast */}

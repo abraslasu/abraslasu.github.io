@@ -18,7 +18,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-20 pt-20">
+    <div className="flex flex-col gap-20 pb-40 pt-20">
       {/* Section 1: Intro */}
       <section className="flex flex-col gap-1 mb-20">
         <h2 className="typo-h2 text-palette-5">Invitație la saloanele socratice</h2>
@@ -58,28 +58,28 @@ export default function Home() {
       </section>
 
       {/* Section 2: Grid Links */}
-      <section className="bg-white w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2">
+      <section className="bg-white w-full p-8 md:p-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
           {/* Row 1, Col 1 */}
-          <Link to="/why" className="group border-t border-[#E7E7E7] px-6 pt-3 pb-[4.5rem] min-h-[200px] flex flex-col justify-between hover:bg-gray-50 transition-colors">
+          <Link to="/why" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">01</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">De ce FOCUS?</h3>
           </Link>
 
           {/* Row 1, Col 2 */}
-          <Link to="/how" className="group border-t border-[#E7E7E7] px-6 pt-3 pb-[4.5rem] min-h-[200px] flex flex-col justify-between hover:bg-gray-50 transition-colors">
+          <Link to="/how" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">02</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Cum se practică?</h3>
           </Link>
 
           {/* Row 2, Col 1 */}
-          <Link to="/etiquette" className="group border-t border-[#E7E7E7] px-6 pt-3 pb-[4.5rem] min-h-[200px] flex flex-col justify-between hover:bg-gray-50 transition-colors">
+          <Link to="/etiquette" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">03</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Cum participi?</h3>
           </Link>
 
           {/* Row 2, Col 2 */}
-          <Link to="/articles" className="group border-t border-[#E7E7E7] px-6 pt-3 pb-[4.5rem] min-h-[200px] flex flex-col justify-between hover:bg-gray-50 transition-colors">
+          <Link to="/articles" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">04</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Scrieri</h3>
           </Link>
