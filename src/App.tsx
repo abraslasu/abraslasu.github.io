@@ -11,6 +11,7 @@ import How from './pages/How';
 import Etiquette from './pages/Etiquette';
 import Articles from './pages/Articles';
 import ArticleDetail from './pages/ArticleDetail';
+import Styleguide from './pages/Styleguide';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="etiquette" element={<Etiquette />} />
           <Route path="articles" element={<Articles />} />
           <Route path="articles/:id" element={<ArticleDetail />} />
+          <Route path="styleguide" element={<Styleguide />} />
         </Route>
       </Routes>
     </BrowserRouter>
