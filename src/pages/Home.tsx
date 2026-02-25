@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import LozPng from '/assets/loz.png';
-import WhatsappPng from '/assets/whatsapp.png';
+import LozPng from '../assets/loz.png';
+import WhatsappPng from '../assets/whatsapp.png';
 
 export default function Home() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });

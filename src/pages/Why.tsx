@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import ArrowLeft from '/assets/arrow-left.svg';
-import ArrowRight from '/assets/arrow-right.svg';
-import FilosofPng from '/assets/filosof.png';
+import ArrowLeft from '../assets/arrow-left.svg';
+import ArrowRight from '../assets/arrow-right.svg';
+import LozPng from '../assets/loz.png';
 
 // Define the context type locally since we can't import it easily without circular deps or moving types
 type MainLayoutContextType = {
@@ -20,6 +20,27 @@ const QUOTES = [
   { name: 'Anca', text: 'Sa ma inteleg mai bine pe mine si sa-i inteleg mai bine pe ceilalti si lumea in care traiesc. Filosofia practica ne invata sa dialogam.' },
   { name: 'Andie', text: 'Pentru a incerca sa simplific exprimarea gandurilor si ideilor proprii.' }
 ];
+
+type CardTransform = {
+  top: number;
+  left: number;
+  rotate: number;
+};
+
+function createInitialTransform(index: number): CardTransform {
+  const seed = index * 123.45;
+
+  // Left: 10%–90% of section width
+  const left = 10 + ((Math.sin(seed * 2) + 1) / 2) * 70;
+
+  // Top: 20%–80% of section height
+  const top = 15 + ((Math.cos(seed * 3) + 1) / 2) * 40;
+
+  // Keep a subtle random rotation
+  const rotate = -15 + Math.sin(seed * 5) * 15;
+
+  return { top, left, rotate };
+}
 
 const LEFT_COLUMN_TEXTS = [
   "Conceptualizează orice fenomen și identifică rapid ce e esențial.",
@@ -75,6 +96,19 @@ function TypingText({ text, onComplete }: { text: string, onComplete?: () => voi
 export default function Why() {
   const { openMenu } = useOutletContext<MainLayoutContextType>();
   const [visibleQuotesCount, setVisibleQuotesCount] = useState(0);
+  const [cardTransforms, setCardTransforms] = useState<CardTransform[]>(() =>
+    QUOTES.map((_, index) => createInitialTransform(index))
+  );
+  const quotesContainerRef = useRef<HTMLElement | null>(null);
+  const [dragState, setDragState] = useState<{
+    index: number | null;
+    offsetX: number;
+    offsetY: number;
+  }>({
+    index: null,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   useEffect(() => {
     // Start the first card immediately
@@ -91,10 +125,82 @@ export default function Why() {
     }
   }, [visibleQuotesCount]);
 
+  useEffect(() => {
+    if (dragState.index === null) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const container = quotesContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+
+      const centerX = pointerX - dragState.offsetX;
+      const centerY = pointerY - dragState.offsetY;
+
+      let leftPercent = (centerX / rect.width) * 100;
+      let topPercent = (centerY / rect.height) * 100;
+
+      // Clamp positions so cards stay within the area
+      leftPercent = Math.max(5, Math.min(95, leftPercent));
+      topPercent = Math.max(10, Math.min(90, topPercent));
+
+      setCardTransforms((prev) => {
+        if (dragState.index === null || !prev[dragState.index]) return prev;
+        const next = [...prev];
+        next[dragState.index] = {
+          ...next[dragState.index],
+          left: leftPercent,
+          top: topPercent,
+        };
+        return next;
+      });
+    };
+
+    const handlePointerUp = () => {
+      setDragState({
+        index: null,
+        offsetX: 0,
+        offsetY: 0,
+      });
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [dragState, quotesContainerRef]);
+
+  const handleCardPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+    index: number
+  ) => {
+    const container = quotesContainerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+
+    const transform = cardTransforms[index] ?? createInitialTransform(index);
+    const centerX = (transform.left / 100) * rect.width;
+    const centerY = (transform.top / 100) * rect.height;
+
+    setDragState({
+      index,
+      offsetX: pointerX - centerX,
+      offsetY: pointerY - centerY,
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-20 pb-20 pt-32">
+    <div className="flex flex-col gap-20 pb-40 pt-10">
       {/* Page Title & Navigation */}
-      <div className="flex items-center justify-between w-full max-w-[33vw] mx-auto">
+      <div className="flex items-center justify-between w-full max-w-[50vw] mx-auto">
         <Link to="/" className="p-2 hover:opacity-70 transition-opacity">
           <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
         </Link>
@@ -112,43 +218,24 @@ export default function Why() {
       </div>
 
       {/* Section 1: Quotes */}
-      <section className="relative w-full h-[65vh] overflow-hidden bg-palette-1">
+      <section
+        ref={quotesContainerRef as React.RefObject<HTMLDivElement>}
+        className="relative w-full h-[65vh] overflow-hidden bg-palette-1"
+      >
         {QUOTES.slice(0, visibleQuotesCount).map((quote, index) => {
-          // Generate stable random positions based on index
-          const seed = index * 123.45; 
-          
-          // Calculate positions centered around 35% (moved up)
-          // Range: 25% to 45% for vertical axis
-          // First card (index 0) is exactly in the center
-          let top = 35;
-          let left = 50;
-          let rotate = 0;
-
-          if (index > 0) {
-             // Random spread for subsequent cards
-             // Use sin/cos to distribute around center
-             // Spread X: -10% to +10% (Result: 40% to 60%)
-             // Spread Y: -10% to +10% (Result: 25% to 45%)
-             const spreadX = (Math.sin(seed * 3) * 10); 
-             const spreadY = (Math.cos(seed * 4) * 10); 
-             
-             left = 50 + spreadX;
-             top = 35 + spreadY;
-             rotate = -15 + (Math.abs(Math.sin(seed * 2)) * 30); // -15 to 15 deg
-          } else {
-             // First card slightly rotated but centered
-             rotate = -5 + (Math.abs(Math.sin(seed)) * 10);
-          }
+          const transform = cardTransforms[index] ?? createInitialTransform(index);
+          const { top, left, rotate } = transform;
           
           return (
             <div 
               key={index}
-              className="absolute bg-white p-8 shadow-md w-auto max-w-[33vw] transition-all duration-500"
+              className="absolute bg-white p-8 shadow-md w-auto max-w-[30vw] transition-all duration-500 cursor-grab"
+              onPointerDown={(event) => handleCardPointerDown(event, index)}
               style={{ 
                 top: `${top}%`, 
                 left: `${left}%`, 
                 transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
-                zIndex: index + 10
+                zIndex: dragState.index === index ? 100 : index + 10
               }}
             >
               <p className="typo-quote text-black mb-4 min-h-[1.5em]">
@@ -179,7 +266,7 @@ export default function Why() {
         {/* The Box */}
         <div className="w-full border border-[#C9C9C9]">
           {/* Header Row */}
-          <div className="w-full py-6 text-center">
+          <div className="w-full py-10 text-center">
             <h4 className="typo-h4 text-black uppercase">Abilitățile filosofului practician</h4>
           </div>
 
@@ -188,7 +275,7 @@ export default function Why() {
             {/* Column 1 (Left) */}
             <div className="flex flex-col">
               {LEFT_COLUMN_TEXTS.map((text, idx) => (
-                <div key={idx} className="border-t border-[#C9C9C9] p-6 h-full flex items-center">
+                <div key={idx} className="border-t border-[#C9C9C9] py-8 px-8 h-full flex items-center">
                   <p className="typo-p text-black">{text}</p>
                 </div>
               ))}
@@ -197,16 +284,16 @@ export default function Why() {
             {/* Column 2 (Image) */}
             <div className="border-t border-[#C9C9C9] lg:border-t-0 flex items-center justify-center bg-[#F5F3F1] p-6">
               <img 
-                src={FilosofPng} 
+                src={LozPng}
                 alt="Filosoful" 
-                className="w-full h-auto object-contain max-h-[600px]" 
+                className="w-full h-auto object-contain max-h-[800px]" 
               />
             </div>
 
             {/* Column 3 (Right) */}
             <div className="flex flex-col">
               {RIGHT_COLUMN_TEXTS.map((text, idx) => (
-                <div key={idx} className="border-t border-[#C9C9C9] p-6 h-full flex items-center">
+                <div key={idx} className="border-t border-[#C9C9C9] py-8 px-8 h-full flex items-center">
                   <p className="typo-p text-black">{text}</p>
                 </div>
               ))}

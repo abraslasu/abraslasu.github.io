@@ -36,11 +36,11 @@ export default function Articles() {
 
   return (
     <div className="flex justify-center pb-20">
-      <div className="w-full md:w-1/3 flex flex-col gap-12">
+      <div className="w-full md:w-[50vw] flex flex-col gap-12">
         
         {/* Page Title & Navigation */}
         <div className="flex flex-col gap-8">
-          <div className="flex items-center justify-between border-b border-[#E7E7E7] pb-6">
+          <div className="flex items-center justify-between max-w-[50vw] pb-6">
             <Link to="/etiquette" className="p-2 hover:opacity-70 transition-opacity">
               <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
             </Link>
