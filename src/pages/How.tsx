@@ -177,7 +177,7 @@ export default function How() {
                       <img src={card.image} alt={card.name} className="w-1/2 h-1/2 object-contain" />
                     </div>
                     <p className="typo-p text-black mt-2">
-                      {isMatched ? card.name : "Găsește perechea para a afla detalii"}
+                      {isMatched ? card.name : "Găsește perechea pentru a afla detalii"}
                     </p>
                   </>
                 ) : (
