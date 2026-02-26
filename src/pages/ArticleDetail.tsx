@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import CloseIcon from '../assets/close.svg';
+import { useSuppressUI } from '../hooks/useSuppressUI';
 
 type ArticleContent = {
   id: string;
@@ -18,7 +19,7 @@ const ARTICLES: ArticleContent[] = [
     paragraphs: [
       'Bella Figura descrie preocuparea excesivă cu aparențele care ajung să influențeze individul și autenticitatea lui. Acesta se conformează imperativului estetic și caută să fie sofisticat, frumos și elegant, prin investiții logistice și morale.',
       'La români, un concept care descrie o psihologie și o motivație existențial-culturală ar putea fi numită Vita Sicura – dorința de securitate, certitudine și stabilitate. Pentru a supraviețui în fața amenințărilor lumii externe, visăm la o viață sigură și previzibilă din care nu trebuie să lipsească resursele și măsurile împotriva pericolului. Dorința de auto-conservare aduce îngrijorare față de ziua de mâine, precum și o paranoia generală în relație cu lumea externă, compusă atât din oameni rău-intenționați, cât și din scenarii catastrofice neprevăzute.',
-      'Aici, constanta culturală nu este preocuparea cu frumusețea, cum e la verișorii mediteraneeni, ci o obsesie cu „a pune pâine pe masă”, într-o lume în care, ironic, nu se mai moare de foame. Această ambiție de viață sigură este nejustificată, fiind o moștenire alimentată și perpetuată instinctiv, în cultura românească, prin frică și conservatorism. Rea-credința, în sensul de falsă convingere, primește dimensiune culturală: individul crede iluzia că supraviețuirea îi este constant amenințată, ceea ce generează teama ca sentiment existențial de bază. Aceasta îl împinge să caute siguranța prin mijloace oportuniste care întrețin inautenticitatea și instabilitatea. Un cerc vicios al amenințării și al supraviețuirii: ouroboros carpatin, survival-mode anxiogenic, unde reziliența produsă e o măsură doar împotriva propriei ființe.',
+      'Aici, constanta culturală nu este preocuparea cu frumusețea, cum e la verișorii mediteraneeni, ci o obsesie cu „a pune pâine pe masă”, într-o lume în care, ironic, nu se mai moare de foame. Această ambiție de viață sigură este nejustificată, fiind o moștenire alimentată și perpetuată instinctiv, în cultura românească, prin frică și conservatorism. Rea-credința, în sensul de falsă convingere, primește dimensiune culturală: individul crede iluzia că supraviețuirea îi este constant amenințată, ceea ce genera teama ca sentiment existențial de bază. Aceasta îl împinge să caute siguranța prin mijloace oportuniste care întrețin inautenticitatea și instabilitatea. Un cerc vicios al amenințării și al supraviețuirii: ouroboros carpatin, survival-mode anxiogenic, unde reziliența produsă e o măsură doar împotriva propriei ființe.',
       'Ca la italieni, și la români poate exista o preocupare pentru aparențe și frumusețe, însă rareori estetica în sine este scopul. Aceasta se subscrie fricii existențiale doar ca o altă strategie de supraviețuire, una pe care o putem numi, mai specific: cosmetizare. Valoarea frumuseții reiese din capacitatea sa de a genera profit, like-uri, contacte sau recunoaștere, ceea ce va garanta un loc în lume celui care poate juca această carte. Dar dacă voalul aparențelor este îndepărtat, esența i-ar putea fi descoperită, vulnerabilizată, și de aceea omul arătos o ascunde sub un ego narcisic, dar fragil. Cosmetizarea este o strategie prin care ne obiectificăm pentru securitate, ne ascundem adevăratul chip și încercăm să ne creștem valoarea în mod artificial.',
       'O altă strategie a românilor de a se apropia de Vita Sicura este disimularea, sau vrăjeala. În dialog, în scris, în relații și afaceri, în relație cu sinele, disimularea este un mod de a crea subterfugii care să-l ajute pe individ să evite amenințări la adresa sa, ori să obțină un avantaj. Vrăjeala este o artă a iluziei, nu optice, ci existențiale, prin care folosim sofisme, complicații și lingușeli a căror scop este apărarea prin învăluire. Evitarea mesajelor directe are la bază instinctul de prezervare a ego-ului, care devine exacerbat pentru omul care vede lumea cu neîncredere și frică.',
       'Acest modus vivendi care idealizează siguranța vine dintr-o percepție că lumea este un loc periculos, competitiv și umilitor pentru cei care se vulnerabilizează. Ca măsură, adesea ne este insuflată de mici ambiția de a fi excelenți, de a ne perfecționa ca să supraviețuim prin rezultatele de care suntem în stare. În sportul de performanță, sau în artele vizuale, este observabil acest fenomen în care doar prin măreție supremă ești demn de recunoaștere și recompensă – însă doar dacă ești comparabil cu cei mai buni. Elitismul ca leac pentru un sentiment de insuficiență.',
@@ -54,6 +55,9 @@ export default function ArticleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  // Suppress the global Header and Footer while this component is mounted
+  useSuppressUI('article-detail');
+
   const article = ARTICLES.find((a) => a.id === id);
 
   if (!id || !article) {
@@ -66,7 +70,7 @@ export default function ArticleDetail() {
 
   return (
     <div className="fixed inset-0 z-50 bg-palette-1 flex flex-col">
-      {/* Close button (Top Right) – same behaviour as menu */}
+      {/* Close button (Top Right) */}
       <div className="absolute top-[var(--fluid-20-45)] right-[var(--fluid-20-45)] z-50">
         <button
           type="button"
@@ -78,31 +82,16 @@ export default function ArticleDetail() {
         </button>
       </div>
 
-      {/* Centered content, constrained to 50% width on desktop */}
+      {/* Centered content */}
       <div className="flex-grow flex flex-col items-center justify-center w-full">
         <div className="w-full max-h-[90vh] overflow-y-auto">
           <div className="mx-auto w-full md:w-[50vw] px-[var(--fluid-20-45)] py-[var(--fluid-32-40)] text-left">
-            {/* Heading */}
             <h2 className="typo-h2 mb-2">{article.title}</h2>
-
-            {/* Caption with author */}
-            <p className="typo-caption text-[#A1A1A1] uppercase mb-6">
-              {article.author}
-            </p>
-
-            {/* Optional leading paragraph */}
-            {article.lead && (
-              <p className="typo-leading-p mb-8">
-                {article.lead}
-              </p>
-            )}
-
-            {/* Body paragraphs */}
+            <p className="typo-caption text-[#A1A1A1] uppercase mb-6">{article.author}</p>
+            {article.lead && <p className="typo-leading-p mb-8">{article.lead}</p>}
             <div className="flex flex-col gap-4">
               {article.paragraphs.map((paragraph, index) => (
-                <p key={index} className="typo-p">
-                  {paragraph}
-                </p>
+                <p key={index} className="typo-p">{paragraph}</p>
               ))}
             </div>
           </div>

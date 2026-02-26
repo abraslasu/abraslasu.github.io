@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import LozPng from '../assets/loz.png';
-import WhatsappPng from '../assets/whatsapp.png';
+import LozPng from '@/src/assets/loz.png';
+import WhatsappPng from '@/src/assets/whatsapp.png';
 
 export default function Home() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -18,9 +18,9 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40 pt-20">
+    <div className="flex flex-col gap-20 pb-40 pt-10">
       {/* Section 1: Intro */}
-      <section className="flex flex-col gap-1 mb-20">
+      <section className="flex flex-col gap-1 mb-10">
         <h2 className="typo-h2 text-palette-5">Invitație la saloanele socratice</h2>
         
         {/* Blurry Text Container */}
@@ -124,7 +124,7 @@ export default function Home() {
 
         <div className="w-[30vw] border border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
           <a 
-            href="https://chat.whatsapp.com/your-group-link" // Placeholder link
+            href="https://chat.whatsapp.com/your-group-link"
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center gap-4"

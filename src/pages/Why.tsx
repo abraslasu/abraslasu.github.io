@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import ArrowLeft from '../assets/arrow-left.svg';
-import ArrowRight from '../assets/arrow-right.svg';
-import LozPng from '../assets/loz.png';
+import ArrowLeft from '@/src/assets/arrow-left.svg';
+import ArrowRight from '@/src/assets/arrow-right.svg';
+import FilosofPng from '@/src/assets/filosof.png';
 
 // Define the context type locally since we can't import it easily without circular deps or moving types
 type MainLayoutContextType = {
@@ -198,9 +198,9 @@ export default function Why() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40 pt-10">
+    <div className="flex flex-col gap-20 pb-40">
       {/* Page Title & Navigation */}
-      <div className="flex items-center justify-between w-full max-w-[50vw] mx-auto">
+      <div className="flex items-center justify-between w-full max-w-[50vw] mx-auto gap-8">
         <Link to="/" className="p-2 hover:opacity-70 transition-opacity">
           <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
         </Link>
@@ -284,7 +284,7 @@ export default function Why() {
             {/* Column 2 (Image) */}
             <div className="border-t border-[#C9C9C9] lg:border-t-0 flex items-center justify-center bg-[#F5F3F1] p-6">
               <img 
-                src={LozPng}
+                src={FilosofPng}
                 alt="Filosoful" 
                 className="w-full h-auto object-contain max-h-[800px]" 
               />

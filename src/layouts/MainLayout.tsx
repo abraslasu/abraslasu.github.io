@@ -2,6 +2,7 @@ import { Outlet, useLocation, useOutletContext } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { useUI } from '../context/UIContext';
 
 type MainLayoutContextType = {
   toggleMenu: () => void;
@@ -17,6 +18,7 @@ export default function MainLayout() {
   const [footerHeight, setFooterHeight] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { isHeaderHidden, isFooterHidden } = useUI();
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev);
   const openMenu = () => setIsMenuOpen(true);
@@ -35,20 +37,15 @@ export default function MainLayout() {
       }
     };
 
-    // Initial measure
     updateFooterHeight();
-
-    // Measure on resize
     window.addEventListener('resize', updateFooterHeight);
-    
-    // Measure on route change (in case footer content changes)
     const timeout = setTimeout(updateFooterHeight, 100);
 
     return () => {
       window.removeEventListener('resize', updateFooterHeight);
       clearTimeout(timeout);
     };
-  }, [location.pathname]);
+  }, [location.pathname, isFooterHidden]); // Re-measure if footer visibility changes
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -56,27 +53,28 @@ export default function MainLayout() {
         isMenuOpen={isMenuOpen} 
         toggleMenu={toggleMenu} 
         closeMenu={closeMenu} 
+        isHidden={isHeaderHidden}
       />
 
       {/* Main Content Wrapper with Background to cover Footer */}
       <div 
         className="relative z-10 bg-palette-1 w-full"
-        style={{ marginBottom: `${footerHeight}px` }}
+        style={{ marginBottom: isFooterHidden ? 0 : `${footerHeight}px` }}
       >
         <main 
           className="w-full"
           style={{ 
-            marginTop: 'calc(var(--fluid-20-45) * 2 + 32px)', // Account for fixed header height + padding
-            paddingLeft: 'var(--fluid-20-45)',
-            paddingRight: 'var(--fluid-20-45)',
-            paddingBottom: 'var(--fluid-20-45)'
+            marginTop: isHeaderHidden ? 0 : 'calc(var(--fluid-20-45) * 2 + 32px)',
+            paddingLeft: isHeaderHidden ? 0 : 'var(--fluid-20-45)',
+            paddingRight: isHeaderHidden ? 0 : 'var(--fluid-20-45)',
+            paddingBottom: isHeaderHidden ? 0 : 'var(--fluid-20-45)'
           }}
         >
           <Outlet context={{ toggleMenu, openMenu, closeMenu }} />
         </main>
       </div>
 
-      <Footer />
+      {!isFooterHidden && <Footer />}
     </div>
   );
 }

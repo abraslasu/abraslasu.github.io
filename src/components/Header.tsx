@@ -1,26 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import SymbolFocus from '../assets/Symbol-FOCUS.svg';
-import MenuIcon from '../assets/menu.svg';
-import CloseIcon from '../assets/close.svg';
+import { Link } from 'react-router-dom';
+import SymbolFocus from '@/src/assets/Symbol-FOCUS.svg';
+import MenuIcon from '@/src/assets/menu.svg';
+import CloseIcon from '@/src/assets/close.svg';
 
 interface HeaderProps {
   isMenuOpen: boolean;
   toggleMenu: () => void;
   closeMenu: () => void;
+  isHidden?: boolean;
 }
 
-export default function Header({ isMenuOpen, toggleMenu, closeMenu }: HeaderProps) {
+export default function Header({ isMenuOpen, toggleMenu, closeMenu, isHidden = false }: HeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
-  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       
       // Hide header on scroll down, show on scroll up
-      // Only trigger if scrolled more than 10px to avoid sensitivity at top
       if (currentScrollY > lastScrollY.current && currentScrollY > 10) {
         setIsVisible(false);
       } else {
@@ -43,9 +42,10 @@ export default function Header({ isMenuOpen, toggleMenu, closeMenu }: HeaderProp
 
   return (
     <>
-      <header 
+      {/* Visual Header Bar */}
+      <header
         className={`fixed top-0 left-0 right-0 z-40 bg-palette-1/90 backdrop-blur-sm transition-transform duration-300 ${
-          isVisible ? 'translate-y-0' : '-translate-y-full'
+          isVisible && !isHidden ? 'translate-y-0' : '-translate-y-full'
         }`}
         style={{ padding: 'var(--fluid-20-45)' }}
       >
@@ -66,7 +66,7 @@ export default function Header({ isMenuOpen, toggleMenu, closeMenu }: HeaderProp
         </div>
       </header>
 
-      {/* Full Screen Menu Overlay */}
+      {/* Full Screen Menu Overlay - Always functional */}
       <div
         className={`fixed inset-0 z-50 bg-black text-white flex flex-col transition-opacity duration-500 ease-in-out ${
           isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
@@ -108,7 +108,6 @@ export default function Header({ isMenuOpen, toggleMenu, closeMenu }: HeaderProp
                 </span>
               </Link>
             ))}
-            {/* Bottom border for the last item */}
             <div className="border-t border-white/40 w-full"></div>
           </div>
         </div>

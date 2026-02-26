@@ -12,22 +12,25 @@ import Etiquette from './pages/Etiquette';
 import Articles from './pages/Articles';
 import ArticleDetail from './pages/ArticleDetail';
 import Styleguide from './pages/Styleguide';
+import { UIProvider } from './context/UIContext';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="why" element={<Why />} />
-          <Route path="how" element={<How />} />
-          <Route path="etiquette" element={<Etiquette />} />
-          <Route path="articles" element={<Articles />}>
-            <Route path=":id" element={<ArticleDetail />} />
+    <UIProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="why" element={<Why />} />
+            <Route path="how" element={<How />} />
+            <Route path="etiquette" element={<Etiquette />} />
+            <Route path="articles" element={<Articles />}>
+              <Route path=":id" element={<ArticleDetail />} />
+            </Route>
+            <Route path="styleguide" element={<Styleguide />} />
           </Route>
-          <Route path="styleguide" element={<Styleguide />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </UIProvider>
   );
 }

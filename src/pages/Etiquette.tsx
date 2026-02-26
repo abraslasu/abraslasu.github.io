@@ -1,7 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom';
-import ArrowLeft from '../assets/arrow-left.svg';
-import ArrowRight from '../assets/arrow-right.svg';
-import WhatsappPng from '../assets/whatsapp.png';
+import ArrowLeft from '@/src/assets/arrow-left.svg';
+import ArrowRight from '@/src/assets/arrow-right.svg';
+import WhatsappPng from '@/src/assets/whatsapp.png';
 
 // Define the context type locally
 type MainLayoutContextType = {
@@ -115,7 +115,7 @@ export default function Etiquette() {
 
         <div className="w-[30vw] border border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
           <a 
-            href="https://chat.whatsapp.com/your-group-link" // Placeholder link
+            href="https://chat.whatsapp.com/your-group-link"
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center gap-4"

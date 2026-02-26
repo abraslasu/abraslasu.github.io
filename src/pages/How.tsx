@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import ArrowLeft from '../assets/arrow-left.svg';
-import ArrowRight from '../assets/arrow-right.svg';
-import ArrowUp from '../assets/arrow-up.svg';
-import ArrowDown from '../assets/arrow-down.svg';
-import ArrowLeftMuted from '../assets/arrow-left-muted.svg';
-import ArrowRightMuted from '../assets/arrow-right-muted.svg';
-import ArrowUpMuted from '../assets/arrow-up-muted.svg';
-import ArrowDownMuted from '../assets/arrow-down-muted.svg';
+import ArrowLeft from '@/src/assets/arrow-left.svg';
+import ArrowRight from '@/src/assets/arrow-right.svg';
+import ArrowLeftMuted from '@/src/assets/arrow-left-muted.svg';
+import ArrowRightMuted from '@/src/assets/arrow-right-muted.svg';
+import ArrowUpMuted from '@/src/assets/arrow-up-muted.svg';
+import ArrowDownMuted from '@/src/assets/arrow-down-muted.svg';
 
 // Import Illustrations
-import IntrebareSvg from '../assets/intrebare.svg';
-import ClarificareSvg from '../assets/clarificare.svg';
-import PresupozitiiSvg from '../assets/presupozitii.svg';
-import AntinomiiSvg from '../assets/antinomii.svg';
-import AprofundareSvg from '../assets/aprofundare.svg';
+import IntrebareSvg from '@/src/assets/intrebare.svg';
+import ClarificareSvg from '@/src/assets/clarificare.svg';
+import PresupozitiiSvg from '@/src/assets/presupozitii.svg';
+import AntinomiiSvg from '@/src/assets/antinomii.svg';
+import AprofundareSvg from '@/src/assets/aprofundare.svg';
+
+import { useSuppressUI } from '@/src/hooks/useSuppressUI';
+import { useUI } from '@/src/context/UIContext';
 
 // Define the context type locally
 type MainLayoutContextType = {
@@ -45,7 +46,7 @@ const CARDS_DATA = [
   { 
     name: 'Presupoziții', 
     image: PresupozitiiSvg, 
-    description: 'Identificarea presupozițiilor scoate la iveală credințele ascunse pe care ne bazăm argumentele. Este esențial să le examinăm critic.' 
+    description: 'Identificarea presupozițiilor scoate la iveală credințele ascunis pe care ne bazăm argumentele. Este esențial să le examinăm critic.'
   },
   { 
     name: 'Antinomii', 
@@ -63,12 +64,19 @@ const ARROWS = [ArrowLeftMuted, ArrowRightMuted, ArrowUpMuted, ArrowDownMuted];
 
 export default function How() {
   const { openMenu } = useOutletContext<MainLayoutContextType>();
-  
+  const { isHeaderHidden } = useUI();
+
   // Game State
   const [cards, setCards] = useState<CardType[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedNames, setMatchedNames] = useState<string[]>([]);
   const [overlayCard, setOverlayCard] = useState<CardType | null>(null);
+
+  // Suppress UI when card overlay is open
+  useSuppressUI('how-card-overlay', {
+    header: !!overlayCard,
+    footer: !!overlayCard
+  });
 
   // Initialize Game
   useEffect(() => {
@@ -169,7 +177,7 @@ export default function How() {
                       <img src={card.image} alt={card.name} className="w-1/2 h-1/2 object-contain" />
                     </div>
                     <p className="typo-p text-black mt-2">
-                      {isMatched ? card.name : "Găsește perechea pentru a afla detalii"}
+                      {isMatched ? card.name : "Găsește perechea para a afla detalii"}
                     </p>
                   </>
                 ) : (
@@ -198,7 +206,9 @@ export default function How() {
           {/* Close button */}
           <button 
             onClick={() => setOverlayCard(null)}
-            className="absolute top-6 right-6 text-white hover:opacity-70 transition-opacity"
+            className={`absolute right-[var(--fluid-20-45)] z-50 text-white hover:opacity-70 transition-all ${
+              isHeaderHidden ? 'top-[var(--fluid-20-45)]' : 'top-8'
+            }`}
           >
             <svg
               viewBox="0 0 24 24"
