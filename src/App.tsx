@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
 import Why from './pages/Why';
@@ -17,7 +17,7 @@ import { UIProvider } from './context/UIContext';
 export default function App() {
   return (
     <UIProvider>
-      <BrowserRouter>
+      <Router>
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />
@@ -30,7 +30,7 @@ export default function App() {
             <Route path="styleguide" element={<Styleguide />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </Router>
     </UIProvider>
   );
 }
