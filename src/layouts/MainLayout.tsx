@@ -48,7 +48,7 @@ export default function MainLayout() {
   }, [location.pathname, isFooterHidden]); // Re-measure if footer visibility changes
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <Header 
         isMenuOpen={isMenuOpen} 
         toggleMenu={toggleMenu} 
@@ -58,15 +58,13 @@ export default function MainLayout() {
 
       {/* Main Content Wrapper with Background to cover Footer */}
       <div 
-        className="relative z-10 bg-palette-1 w-full"
+        className="relative z-10 bg-palette-1 w-full overflow-x-hidden"
         style={{ marginBottom: isFooterHidden ? 0 : `${footerHeight}px` }}
       >
         <main 
           className="w-full"
           style={{ 
             marginTop: isHeaderHidden ? 0 : 'calc(var(--fluid-20-45) * 2 + 32px)',
-            paddingLeft: isHeaderHidden ? 0 : 'var(--fluid-20-45)',
-            paddingRight: isHeaderHidden ? 0 : 'var(--fluid-20-45)',
             paddingBottom: isHeaderHidden ? 0 : 'var(--fluid-20-45)'
           }}
         >

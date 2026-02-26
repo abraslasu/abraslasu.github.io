@@ -1,11 +1,21 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LozPng from '@/src/assets/loz.png';
 import WhatsappPng from '@/src/assets/whatsapp.png';
 
 export default function Home() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [radius, setRadius] = useState(200);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateRadius = () => {
+      setRadius(window.innerWidth < 768 ? 100 : 200);
+    };
+    updateRadius();
+    window.addEventListener('resize', updateRadius);
+    return () => window.removeEventListener('resize', updateRadius);
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (containerRef.current) {
@@ -18,23 +28,23 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40 pt-10">
+    <div className="flex flex-col gap-10 md:gap-20 pb-40 pt-10 overflow-x-hidden">
       {/* Section 1: Intro */}
-      <section className="flex flex-col gap-1 mb-10">
+      <section className="flex flex-col gap-1 px-[var(--fluid-20-45)]">
         <h2 className="typo-h2 text-palette-5">Invitație la saloanele socratice</h2>
         
         {/* Blurry Text Container */}
         <div 
           ref={containerRef}
           onMouseMove={handleMouseMove}
-          className="relative w-fit cursor-none select-none"
+          className="relative w-full overflow-visible cursor-none select-none py-4"
         >
           {/* Base Layer: Blurred Text */}
           <h1 
-            className="typo-h1 text-palette-5 leading-none -ml-1 blur-md"
+            className="typo-h1 text-palette-5 leading-none -ml-1 blur-md whitespace-nowrap"
             style={{
-              maskImage: `radial-gradient(circle 300px at ${mousePos.x}px ${mousePos.y}px, transparent 100%, black 100%)`,
-              WebkitMaskImage: `radial-gradient(circle 300px at ${mousePos.x}px ${mousePos.y}px, transparent 100%, black 100%)`,
+              maskImage: `radial-gradient(circle ${radius}px at ${mousePos.x}px ${mousePos.y}px, transparent 100%, black 100%)`,
+              WebkitMaskImage: `radial-gradient(circle ${radius}px at ${mousePos.x}px ${mousePos.y}px, transparent 100%, black 100%)`,
             }}
           >
             FOCUS
@@ -42,44 +52,44 @@ export default function Home() {
 
           {/* Top Layer: Clear Text with Mask */}
           <h1 
-            className="typo-h1 text-palette-5 leading-none -ml-1 absolute top-0 left-0 pointer-events-none"
+            className="typo-h1 text-palette-5 leading-none -ml-1 absolute top-4 left-0 pointer-events-none whitespace-nowrap"
             style={{
-              maskImage: `radial-gradient(circle 300px at ${mousePos.x}px ${mousePos.y}px, black 100%, transparent 100%)`,
-              WebkitMaskImage: `radial-gradient(circle 300px at ${mousePos.x}px ${mousePos.y}px, black 100%, transparent 100%)`,
+              maskImage: `radial-gradient(circle ${radius}px at ${mousePos.x}px ${mousePos.y}px, black 100%, transparent 100%)`,
+              WebkitMaskImage: `radial-gradient(circle ${radius}px at ${mousePos.x}px ${mousePos.y}px, black 100%, transparent 100%)`,
             }}
           >
             FOCUS
           </h1>
         </div>
 
-        <p className="typo-leading-p text-palette-5 w-[60vw] mt-6">
+        <p className="typo-leading-p text-palette-5 w-full md:w-[60vw] mt-6">
           Un spațiu dedicat dialogului, unde ne întâlnim pentru a explora idei și curiozități, aplicând lentila filosofiei practice.
         </p>
       </section>
 
       {/* Section 2: Grid Links */}
-      <section className="bg-white w-full p-8 md:p-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
+      <section className="bg-white w-full py-6 md:py-12 border-y border-[#E7E7E7]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 md:gap-y-12 px-[var(--fluid-20-45)]">
           {/* Row 1, Col 1 */}
-          <Link to="/why" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
+          <Link to="/why" className="group border-t border-[#E7E7E7] pt-4 pb-8 md:pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">01</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">De ce FOCUS?</h3>
           </Link>
 
           {/* Row 1, Col 2 */}
-          <Link to="/how" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
+          <Link to="/how" className="group border-t border-[#E7E7E7] pt-4 pb-8 md:pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">02</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Cum se practică?</h3>
           </Link>
 
           {/* Row 2, Col 1 */}
-          <Link to="/etiquette" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
+          <Link to="/etiquette" className="group border-t border-[#E7E7E7] pt-4 pb-8 md:pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">03</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Cum participi?</h3>
           </Link>
 
           {/* Row 2, Col 2 */}
-          <Link to="/articles" className="group border-t border-[#E7E7E7] pt-4 pb-12 flex flex-col gap-2 transition-colors">
+          <Link to="/articles" className="group border-t border-[#E7E7E7] pt-4 pb-8 md:pb-12 flex flex-col gap-2 transition-colors">
             <span className="typo-caption text-[#A1A1A1]">04</span>
             <h3 className="typo-h3 text-black group-hover:translate-x-2 transition-transform">Scrieri</h3>
           </Link>
@@ -87,7 +97,7 @@ export default function Home() {
       </section>
 
       {/* Section 3: Lozul Filosofic */}
-      <section className="flex flex-col gap-12 mt-20">
+      <section className="flex flex-col gap-8 md:gap-12 mt-10 md:mt-20 px-[var(--fluid-20-45)]">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Lozul Filosofic</h2>
           <p className="typo-leading-p text-palette-5">Încearcă-ți norocul la înțelepciune!</p>
@@ -114,7 +124,7 @@ export default function Home() {
       </section>
 
       {/* Section 4: Whatsapp Join */}
-      <section className="border-t border-[#C9C9C9] pt-12 flex flex-col gap-12 mt-20">
+      <section className="border-t border-[#C9C9C9] pt-8 md:pt-12 flex flex-col gap-8 md:gap-12 mt-10 md:mt-20 px-[var(--fluid-20-45)]">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Alătură-te conversației</h2>
           <p className="typo-leading-p text-palette-5">
@@ -122,7 +132,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="w-[30vw] border border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
+        <div className="w-full md:w-fit min-w-[30vw] border border-black py-8 md:px-20 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
           <a 
             href="https://chat.whatsapp.com/your-group-link"
             target="_blank" 

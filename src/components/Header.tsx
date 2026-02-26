@@ -95,7 +95,7 @@ export default function Header({ isMenuOpen, toggleMenu, closeMenu, isHidden = f
           </div>
 
           {/* Menu Links */}
-          <div className="w-[33vw] flex flex-col">
+          <div className="w-full px-[var(--fluid-20-45)] md:w-[33vw] md:px-0 flex flex-col">
             {menuItems.map((item) => (
               <Link
                 key={item.path}

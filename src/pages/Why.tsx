@@ -198,10 +198,10 @@ export default function Why() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40">
+    <div className="flex flex-col gap-20 pb-40 px-[var(--fluid-20-45)]">
       {/* Page Title & Navigation */}
-      <div className="flex items-center justify-between w-full max-w-[50vw] mx-auto gap-8">
-        <Link to="/" className="p-2 hover:opacity-70 transition-opacity">
+      <div className="flex items-center justify-between w-full md:max-w-[50vw] mx-auto gap-8">
+        <Link to="/" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
           <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
         </Link>
         
@@ -212,7 +212,7 @@ export default function Why() {
           De ce filosofie practică?
         </button>
 
-        <Link to="/how" className="p-2 hover:opacity-70 transition-opacity">
+        <Link to="/how" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
           <img src={ArrowRight} alt="Next" className="h-6 w-6" />
         </Link>
       </div>
@@ -229,7 +229,7 @@ export default function Why() {
           return (
             <div 
               key={index}
-              className="absolute bg-white p-8 shadow-md w-auto max-w-[30vw] transition-all duration-500 cursor-grab"
+              className="absolute bg-white p-8 shadow-md w-[calc(100%-var(--fluid-20-45)*2)] md:w-auto md:max-w-[30vw] transition-all duration-500 cursor-grab"
               onPointerDown={(event) => handleCardPointerDown(event, index)}
               style={{ 
                 top: `${top}%`, 
@@ -258,7 +258,7 @@ export default function Why() {
       <section className="flex flex-col gap-16 w-full">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Filosoful practician</h2>
-          <p className="typo-leading-p text-palette-5 max-w-[60vw]">
+          <p className="typo-leading-p text-palette-5 w-full md:max-w-[60vw]">
             Practică arta conversației cu sens. O activitate de exersare intensă a minții, un antrenament constant pentru a se menține în formă mentală bună.
           </p>
         </div>
@@ -267,7 +267,7 @@ export default function Why() {
         <div className="w-full border border-[#C9C9C9]">
           {/* Header Row */}
           <div className="w-full py-10 text-center">
-            <h4 className="typo-h4 text-black uppercase">Abilitățile filosofului practician</h4>
+            <h4 className="typo-h4 text-black uppercase">Abilitățile filosoful practician</h4>
           </div>
 
           {/* Grid Content */}
@@ -281,8 +281,8 @@ export default function Why() {
               ))}
             </div>
 
-            {/* Column 2 (Image) */}
-            <div className="border-t border-[#C9C9C9] lg:border-t-0 flex items-center justify-center bg-[#F5F3F1] p-6">
+            {/* Column 2 (Image) - Hidden on small viewports */}
+            <div className="border-t border-[#C9C9C9] lg:border-t-0 flex items-center justify-center bg-[#F5F3F1] p-6 hidden md:flex">
               <img 
                 src={FilosofPng}
                 alt="Filosoful" 

@@ -35,7 +35,7 @@ export default function Styleguide() {
   ];
 
   return (
-    <div className="p-8 space-y-16 bg-palette-1 min-h-screen">
+    <div className="px-[var(--fluid-20-45)] py-8 space-y-16 bg-palette-1 min-h-screen">
       <section>
         <h2 className="text-3xl font-bold mb-8 border-b border-black pb-2">Color Palette</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

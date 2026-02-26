@@ -60,8 +60,7 @@ export default function Footer() {
     return (
       <footer 
         id="app-footer"
-        className="fixed bottom-0 left-0 w-full z-0 bg-black text-white group"
-        style={{ height: '90vh' }}
+        className="fixed bottom-0 left-0 w-full z-0 bg-black text-white group h-[50vh] md:h-[90vh]"
       >
         {/* Background Image */}
         <div className="absolute inset-0 z-0">
@@ -77,8 +76,8 @@ export default function Footer() {
         {/* Content */}
         <div className="relative z-10 w-full h-full flex flex-col">
           {/* Centered Link */}
-          <div className="flex-grow flex justify-center items-center">
-            <div className="w-[33vw] flex flex-col items-center">
+          <div className="flex-grow flex justify-center items-center px-[var(--fluid-20-45)]">
+            <div className="w-full md:w-[33vw] flex flex-col items-center">
               <Link 
                 to={config.linkTo || '/'} 
                 onClick={handleBigFooterLinkClick}
@@ -110,11 +109,11 @@ export default function Footer() {
   return (
     <footer 
       id="app-footer" 
-      className="fixed bottom-0 left-0 w-full z-0 bg-palette-1 py-8"
+      className="fixed bottom-0 left-0 w-full z-0 bg-palette-1 py-8 px-[var(--fluid-20-45)]"
     >
       <div className="w-full flex justify-center">
         <div 
-          className="w-[50vw] border-t border-[#C9C9C9] text-center"
+          className="w-full md:w-[50vw] border-t border-[#C9C9C9] text-center"
           style={{ paddingTop: 'var(--fluid-16-16)' }}
         >
           <p className="typo-caption text-[#A1A1A1] uppercase">{config.caption}</p>

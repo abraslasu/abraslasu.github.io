@@ -127,11 +127,11 @@ export default function How() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40">
+    <div className="flex flex-col gap-20 pb-40 px-[var(--fluid-20-45)]">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between pb-6 w-full max-w-[50vw] mx-auto">
-          <Link to="/why" className="p-2 hover:opacity-70 transition-opacity">
+        <div className="flex items-center justify-between pb-6 w-full md:max-w-[50vw] mx-auto">
+          <Link to="/why" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
             <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
           </Link>
           
@@ -142,12 +142,12 @@ export default function How() {
             Cum se practică?
           </button>
 
-          <Link to="/etiquette" className="p-2 hover:opacity-70 transition-opacity">
+          <Link to="/etiquette" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
             <img src={ArrowRight} alt="Next" className="h-6 w-6" />
           </Link>
         </div>
         
-        <p className="typo-leading-p text-palette-5 max-w-[60vw] pt-8">
+        <p className="typo-leading-p text-palette-5 w-full md:max-w-[60vw] pt-8">
           Atelierele de filosofie practică oferă un spațiu structurat în care oamenii produc idei, interoghează presupoziții, argumentează poziții diferite și problematizează certitudini.
         </p>
       </div>
@@ -202,7 +202,7 @@ export default function How() {
 
       {/* Overlay */}
       {overlayCard && (
-        <div className="fixed inset-0 z-[9999] bg-black text-white">
+        <div className="fixed inset-0 z-[9999] bg-black text-white px-[var(--fluid-20-45)]">
           {/* Close button */}
           <button 
             onClick={() => setOverlayCard(null)}
@@ -227,14 +227,14 @@ export default function How() {
 
           {/* Content */}
           <div className="h-full w-full flex items-center">
-            <div className="max-w-3xl w-full mx-6 md:mx-20 flex flex-col gap-6">
+            <div className="max-w-3xl w-full flex flex-col gap-6">
               <img
                 src={overlayCard.image}
                 alt={overlayCard.name}
                 className="w-16 h-16 object-contain invert brightness-0"
               />
               <h2 className="typo-h2">{overlayCard.name}</h2>
-              <p className="typo-leading-p max-w-[60vw]">
+              <p className="typo-leading-p w-full md:max-w-[60vw]">
                 {overlayCard.description}
               </p>
             </div>

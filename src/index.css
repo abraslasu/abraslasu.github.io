@@ -17,7 +17,7 @@
 
 :root {
   /* Fluid Spacing & Sizing Clamps */
-  --fluid-160-800: clamp(10rem, 2rem + 40vw, 50rem);
+  --fluid-160-800: clamp(6rem, 2rem + 30vw, 50rem);
   --fluid-56-80: clamp(3.5rem, 3.2rem + 1.5vw, 5rem);
   --fluid-48-72: clamp(3rem, 2.7rem + 1.5vw, 4.5rem);
   --fluid-40-56: clamp(2.5rem, 2.3rem + 1vw, 3.5rem);
@@ -37,6 +37,7 @@
     font-family: var(--font-garamond);
     color: var(--color-palette-5);
     background-color: var(--color-palette-1);
+    overflow-x: hidden; /* Prevent horizontal scroll on body as well */
   }
 }
 

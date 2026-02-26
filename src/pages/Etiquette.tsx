@@ -14,11 +14,11 @@ export default function Etiquette() {
   const { openMenu } = useOutletContext<MainLayoutContextType>();
 
   return (
-    <div className="flex flex-col gap-20 pb-40">
+    <div className="flex flex-col gap-10 md:gap-20 pb-20 md:pb-40 px-[var(--fluid-20-45)]">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between pb-10 w-full max-w-[50vw] mx-auto">
-          <Link to="/how" className="p-2 hover:opacity-70 transition-opacity">
+        <div className="flex items-center justify-between pb-10 w-full md:max-w-[50vw] mx-auto">
+          <Link to="/how" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
             <img src={ArrowLeft} alt="Previous" className="h-6 w-6" />
           </Link>
           
@@ -29,12 +29,12 @@ export default function Etiquette() {
             Cum participi?
           </button>
 
-          <Link to="/articles" className="p-2 hover:opacity-70 transition-opacity">
+          <Link to="/articles" className="p-2 hover:opacity-70 transition-opacity hidden md:block">
             <img src={ArrowRight} alt="Next" className="h-6 w-6" />
           </Link>
         </div>
         
-        <p className="typo-leading-p text-palette-5 max-w-4xl pb-8">
+        <p className="typo-leading-p text-palette-5 w-full md:max-w-4xl pb-8">
           Saloanele socratice sunt menite să nutrească dialoguri cu sens. Acest scop ne aduce împreună – calea către dialog începe cu o participare.
         </p>
       </div>
@@ -105,7 +105,7 @@ export default function Etiquette() {
       </section>
 
       {/* Section 2: Whatsapp Join */}
-      <section className="pt-12 flex flex-col gap-12 mt-20">
+      <section className="md:pt-12 flex flex-col gap-4 md:gap-12 mt-5 md:mt-20">
         <div className="flex flex-col gap-4">
           <h2 className="typo-h2 text-palette-5">Alătură-te conversației</h2>
           <p className="typo-leading-p text-palette-5">
@@ -113,7 +113,7 @@ export default function Etiquette() {
           </p>
         </div>
 
-        <div className="w-[30vw] border border-black py-8 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
+        <div className="w-full md:w-fit min-w-[30vw] border border-black py-8 md:px-20 flex justify-center items-center hover:bg-black/5 transition-colors cursor-pointer">
           <a 
             href="https://chat.whatsapp.com/your-group-link"
             target="_blank" 
