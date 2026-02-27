@@ -127,7 +127,7 @@ export default function How() {
   };
 
   return (
-    <div className="flex flex-col gap-20 pb-40 px-[var(--fluid-20-45)]">
+    <div className="flex flex-col gap-20 pb-30 px-[var(--fluid-20-45)]">
       {/* Page Title & Navigation */}
       <div className="flex flex-col gap-8">
         <div className="flex items-center justify-between pb-6 w-full md:max-w-[50vw] mx-auto">
@@ -153,7 +153,7 @@ export default function How() {
       </div>
 
       {/* Section 1: Memory Game */}
-      <section className="flex flex-col gap-8 w-full pt-8 pb-10">
+      <section className="flex flex-col gap-6 w-full pt-8 pb-6">
         <h2 className="typo-h2 text-palette-5 pb-6">Instrumente de practică filosofică</h2>
         
         <div className="grid grid-cols-2 md:grid-cols-5 border-t border-l border-[#C9C9C9]">
