@@ -267,7 +267,7 @@ export default function Why() {
         <div className="w-full border border-[#C9C9C9]">
           {/* Header Row */}
           <div className="w-full py-10 text-center">
-            <h4 className="typo-h4 text-black uppercase">Abilitățile filosoful practician</h4>
+            <h4 className="typo-h4 text-black uppercase">Abilitățile filosofului practician</h4>
           </div>
 
           {/* Grid Content */}
