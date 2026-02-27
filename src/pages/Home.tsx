@@ -28,7 +28,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col gap-10 md:gap-20 pb-40 pt-10 overflow-x-hidden">
+    <div className="flex flex-col gap-10 md:gap-20 pb-30 pt-10 overflow-x-hidden">
       {/* Section 1: Intro */}
       <section className="flex flex-col gap-1 px-[var(--fluid-20-45)]">
         <h2 className="typo-h2 text-palette-5">Invitație la saloanele socratice</h2>
