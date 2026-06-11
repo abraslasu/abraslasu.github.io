@@ -43,7 +43,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
             <button
               key={index}
               onClick={() => handleImageClick(index)}
-              className="relative aspect-[4/3] overflow-hidden group cursor-pointer"
+              className="relative aspect-square overflow-hidden group cursor-pointer"
             >
               <img
                 src={src}
