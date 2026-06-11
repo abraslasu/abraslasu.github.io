@@ -5,7 +5,7 @@ import DetailPage from './pages/DetailPage';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/abraslasu.gihtub.io">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
