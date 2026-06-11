@@ -17,12 +17,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function getTouchDistance(touches: React.TouchList) {
-  if (touches.length < 2) return 0;
-  const a = touches[0];
-  const b = touches[1];
-  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-}
+const DRAG_THRESHOLD = 5;
 
 export default function Lightbox({
   images,
@@ -40,7 +35,7 @@ export default function Lightbox({
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
 
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
-  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
+  const pointerMoved = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const scale = fitScale * zoom;
@@ -60,6 +55,25 @@ export default function Lightbox({
     const nextFitScale = Math.min(viewportWidth / width, viewportHeight / height, 1);
     setFitScale(nextFitScale);
   }, []);
+
+  const clampPosition = useCallback(
+    (pos: { x: number; y: number }, currentScale: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport || naturalSize.width === 0) return pos;
+
+      const { width: viewportWidth, height: viewportHeight } = viewport.getBoundingClientRect();
+      const scaledWidth = naturalSize.width * currentScale;
+      const scaledHeight = naturalSize.height * currentScale;
+      const maxX = Math.max(0, (scaledWidth - viewportWidth) / 2);
+      const maxY = Math.max(0, (scaledHeight - viewportHeight) / 2);
+
+      return {
+        x: clamp(pos.x, -maxX, maxX),
+        y: clamp(pos.y, -maxY, maxY),
+      };
+    },
+    [naturalSize],
+  );
 
   const setZoomLevel = useCallback(
     (nextZoom: number) => {
@@ -148,38 +162,68 @@ export default function Lightbox({
 
   const handleWheel = (event: React.WheelEvent) => {
     event.preventDefault();
-    const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    setZoomLevel(zoom + delta);
+    if (!isZoomed) return;
+
+    setPosition((prev) =>
+      clampPosition(
+        {
+          x: prev.x - event.deltaX,
+          y: prev.y - event.deltaY,
+        },
+        scale,
+      ),
+    );
   };
 
-  const handleDoubleClick = () => {
+  const handleImageClick = () => {
+    if (pointerMoved.current) {
+      pointerMoved.current = false;
+      return;
+    }
+
     if (isZoomed) {
       resetView();
       return;
     }
+
     handleActualSize();
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLImageElement>) => {
-    if (!isZoomed || event.pointerType === 'touch') return;
+    if (!isZoomed) return;
 
-    setIsDragging(true);
+    pointerMoved.current = false;
     dragStart.current = {
       x: event.clientX,
       y: event.clientY,
       posX: position.x,
       posY: position.y,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLImageElement>) => {
-    if (!isDragging) return;
+    if (!isZoomed) return;
 
-    setPosition({
-      x: dragStart.current.posX + (event.clientX - dragStart.current.x),
-      y: dragStart.current.posY + (event.clientY - dragStart.current.y),
-    });
+    const deltaX = event.clientX - dragStart.current.x;
+    const deltaY = event.clientY - dragStart.current.y;
+
+    if (!isDragging) {
+      if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return;
+
+      setIsDragging(true);
+      pointerMoved.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    setPosition(
+      clampPosition(
+        {
+          x: dragStart.current.posX + deltaX,
+          y: dragStart.current.posY + deltaY,
+        },
+        scale,
+      ),
+    );
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLImageElement>) => {
@@ -187,30 +231,6 @@ export default function Lightbox({
 
     setIsDragging(false);
     event.currentTarget.releasePointerCapture(event.pointerId);
-  };
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 2) {
-      pinchStart.current = {
-        distance: getTouchDistance(event.touches),
-        zoom,
-      };
-    }
-  };
-
-  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 2 || !pinchStart.current) return;
-
-    event.preventDefault();
-    const distance = getTouchDistance(event.touches);
-    if (distance === 0 || pinchStart.current.distance === 0) return;
-
-    const ratio = distance / pinchStart.current.distance;
-    setZoomLevel(pinchStart.current.zoom * ratio);
-  };
-
-  const handleTouchEnd = () => {
-    pinchStart.current = null;
   };
 
   if (!isOpen) return null;
@@ -272,10 +292,6 @@ export default function Lightbox({
         ref={viewportRef}
         className="flex-1 flex items-center justify-center overflow-hidden touch-none px-16 sm:px-24 py-20"
         onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
       >
         {!imageLoaded && (
           <p className="text-white/60 text-sm">Loading image...</p>
@@ -285,7 +301,7 @@ export default function Lightbox({
           src={images[currentIndex]}
           alt={`Image ${currentIndex + 1} of ${images.length}`}
           onLoad={handleImageLoad}
-          onDoubleClick={handleDoubleClick}
+          onClick={handleImageClick}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -309,7 +325,7 @@ export default function Lightbox({
           {currentIndex + 1} / {images.length}
         </div>
         <div className="text-xs sm:text-sm text-white/50 mt-1">
-          {zoomPercent}% · Scroll or pinch to zoom · Double-click for 100%
+          {zoomPercent}% · Click image for 100% · Scroll to pan when zoomed
         </div>
       </div>
     </div>
