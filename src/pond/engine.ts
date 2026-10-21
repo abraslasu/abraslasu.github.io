@@ -2,8 +2,8 @@ import { QualityGovernor } from './quality';
 import { AsciiPond } from './renderer';
 import { World } from './world';
 
+/** Longest simulation step; longer frames are split into equal substeps. */
 const STEP = 1 / 60;
-const MAX_STEPS = 4;
 
 /**
  * Wires World + AsciiPond to a canvas: fixed-timestep loop, resize, pointer
@@ -19,7 +19,6 @@ export class PondEngine {
   private renderer: AsciiPond;
   private raf = 0;
   private last = 0;
-  private acc = 0;
   private visible = true;
   private reducedMotion: MediaQueryList;
   private resizeObserver: ResizeObserver;
@@ -86,14 +85,12 @@ export class PondEngine {
     const interval = now - this.last;
     const dt = Math.min(0.1, interval / 1000);
     this.last = now;
-    this.acc += dt;
-    let steps = 0;
-    while (this.acc >= STEP && steps < MAX_STEPS) {
-      this.world.step(STEP);
-      this.acc -= STEP;
-      steps++;
-    }
-    if (steps === MAX_STEPS) this.acc = 0;
+    // Step by the real frame time, so every drawn frame moves the koi by
+    // exactly as much time as passed: smooth at 60, 90, 120 or 144 Hz alike.
+    // (Fixed 1/60 s steps left 90-144 Hz screens repeating positions on
+    // some frames and not others, which reads as judder.)
+    const substeps = Math.max(1, Math.ceil(dt / STEP - 1e-6));
+    for (let i = 0; i < substeps; i++) this.world.step(dt / substeps);
     this.renderer.render(this.world, dt);
     // Struggling for a while? Drop the canvas resolution a step.
     if (this.quality.sample(interval, now)) this.resize();
@@ -117,7 +114,7 @@ export class PondEngine {
     const y = e.clientY - rect.top;
     if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
     const first = !this.world.started;
-    this.world.start();
+    this.world.start(x, y);
     this.world.drop(x, y);
     if (first) this.schedule();
   };

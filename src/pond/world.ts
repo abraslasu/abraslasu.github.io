@@ -17,7 +17,13 @@ export const CALM_RIPPLE_LIFE = 2;
 /** At most this many ripples spread at once; a newer drop fades out the oldest. */
 export const MAX_RIPPLES = 4;
 /** Seconds an evicted ripple takes to fade away. */
-export const RIPPLE_FADE = 0.35;
+export const RIPPLE_FADE = 0.2;
+/** Seconds between koi surfacing, nearest to the first tap first. */
+export const SURFACE_STAGGER = 0.08;
+
+/** The headline's no-swim ellipse: semi-axes as fractions of the viewport. */
+const ZONE_RX = 0.24;
+const ZONE_RY = 0.14;
 
 /** Length of the biggest koi for a viewport whose shorter side is minSide. */
 const baseLength = (minSide: number) => clamp(minSide * 0.34, 130, 320);
@@ -131,14 +137,14 @@ export class World {
     }
   }
 
-  /** First click: the koi surface, spread around the page. */
-  start() {
+  /** First click at (x, y): the koi surface around the page, in a wave outward from the tap. */
+  start(x = this.width / 2, y = this.height / 2) {
     if (this.started) return;
     this.started = true;
-    this.seed();
+    this.seed(x, y);
   }
 
-  private seed() {
+  private seed(tapX: number, tapY: number) {
     const { width: W, height: H } = this;
     const minSide = Math.min(W, H);
     const count = this.count;
@@ -188,6 +194,11 @@ export class World {
         startle: 0,
       });
     }
+    // Surface nearest-first, so the wave of koi starts where the tap landed.
+    const ranked = this.koi
+      .map((k) => ({ k, d: Math.hypot(k.nodes[0] - tapX, k.nodes[1] - tapY) }))
+      .sort((a, b) => a.d - b.d);
+    ranked.forEach(({ k }, rank) => (k.born = this.time + rank * SURFACE_STAGGER));
     // Smaller (farther) koi draw first so the big ones swim over them.
     this.koi.sort((a, b) => a.length - b.length);
   }
@@ -221,6 +232,8 @@ export class World {
       .map((k) => ({ k, d: Math.hypot(k.nodes[0] - x, k.nodes[1] - y) }))
       .sort((a, b) => a.d - b.d);
     const nearCount = Math.ceil(byDistance.length / 2);
+    // Koi coming to look stop at the edge of the headline, never on top of it.
+    const food = this.outsideHeadline(x, y);
     byDistance.forEach(({ k, d }, i) => {
       k.foodX = x;
       k.foodY = y;
@@ -232,9 +245,24 @@ export class World {
         k.foodUntil = 0;
       } else {
         k.startle = 0;
+        k.foodX = food.x;
+        k.foodY = food.y;
         k.foodUntil = this.time + rand(4, 7);
       }
     });
+  }
+
+  /** Push a point inside the headline ellipse out to just past its edge. */
+  private outsideHeadline(x: number, y: number) {
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const ex = (x - cx) / (this.width * ZONE_RX);
+    const ey = (y - cy) / (this.height * ZONE_RY);
+    const e = Math.sqrt(ex * ex + ey * ey);
+    if (e >= 1) return { x, y };
+    if (e < 1e-3) return { x: cx, y: cy + this.height * ZONE_RY * 1.15 };
+    const k = 1.15 / e;
+    return { x: cx + (x - cx) * k, y: cy + (y - cy) * k };
   }
 
   step(dt: number) {
@@ -319,13 +347,14 @@ export class World {
         }
       }
 
-      // Keep the headline mostly clear: a soft elliptical no-swim zone.
-      const ex = (hx - cxW) / (W * 0.24);
-      const ey = (hy - cyW) / (H * 0.14);
+      // Keep the headline clear: an elliptical no-swim zone that pushes
+      // already at its edge and harder than any pull toward a drop.
+      const ex = (hx - cxW) / (W * ZONE_RX);
+      const ey = (hy - cyW) / (H * ZONE_RY);
       const e2 = ex * ex + ey * ey;
       if (e2 < 1) {
         const e = Math.sqrt(e2) || 1e-3;
-        const w = (1 - e) * (feeding ? 1.2 : 2.6);
+        const w = 0.8 + 2.8 * (1 - e);
         dx += (ex / e) * w;
         dy += (ey / e) * w;
       }

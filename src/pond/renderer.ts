@@ -35,8 +35,18 @@ const PAINT_RGB: [number, number, number][] = [
   ...BLUES.flatMap((c): [number, number, number][] => [c, [c[0] * 1.2 + 14, c[1] * 1.16 + 12, c[2] * 1.08 + 8]]),
   [236, 126, 48],
 ];
-/** Seconds a koi takes to fade in after surfacing. */
+/** Seconds a koi takes to surface: fade in while growing from SURFACE_SCALE to full size. */
 const FADE_IN = 1.2;
+const SURFACE_SCALE = 0.95;
+
+/** How far a koi has surfaced, 0 → 1, eased out (strong start, soft landing). */
+function surfacing(t: number, born: number) {
+  const p = clamp((t - born) / FADE_IN, 0, 1);
+  return 1 - (1 - p) ** 3;
+}
+
+/** Seconds the impact star stays after a tap: press feedback, so short. */
+const SPLASH = 0.18;
 
 // Sparse glyphs on bright skin, dense glyphs in shadow.
 const SKIN_RAMP = ':;t%SX8#@';
@@ -241,10 +251,15 @@ export class AsciiPond {
     this.width = width;
     this.height = height;
     this.dpr = dpr;
+    const prevCols = this.cols;
+    const prevRows = this.rows;
     this.cw = clamp(Math.round(width / 124), 8, 13);
     this.ch = Math.round(this.cw * 1.45);
     this.cols = Math.ceil(width / this.cw);
     this.rows = Math.ceil(height / this.ch);
+    // Same grid (e.g. only the resolution stepped down): keep the wake
+    // trails, so a quality change doesn't wipe the water mid-animation.
+    const sameGrid = this.cols === prevCols && this.rows === prevRows;
 
     this.canvas.width = Math.round(width * dpr);
     this.canvas.height = Math.round(height * dpr);
@@ -252,8 +267,10 @@ export class AsciiPond {
     this.bg.height = this.canvas.height;
 
     const n = this.cols * this.rows;
-    this.energy = new Float32Array(n);
-    this.energyTmp = new Float32Array(n);
+    if (!sameGrid) {
+      this.energy = new Float32Array(n);
+      this.energyTmp = new Float32Array(n);
+    }
     this.koiFlag = new Uint8Array(n);
     this.koiShade = new Float32Array(n);
     this.koiPaint = new Uint8Array(n);
@@ -341,7 +358,7 @@ export class AsciiPond {
 
     this.drawShadows();
     this.drawWake();
-    this.drawKoi(t);
+    this.drawKoi(t, world.calm);
     this.drawBarbels(world.koi, t);
     this.drawGlyphs(this.koiGlyphs);
     this.drawRipples(world.ripples, t);
@@ -508,13 +525,17 @@ export class AsciiPond {
     koiShadow.fill(0);
 
     for (const k of koi) {
-      const L = k.length;
+      // Not surfaced yet: nothing to draw.
+      const alpha = surfacing(t, k.born);
+      if (alpha <= 0) continue;
+      // Surfacing koi grow from just under full size, as if rising toward the light.
+      const grow = SURFACE_SCALE + (1 - SURFACE_SCALE) * alpha;
+      const L = k.length * grow;
       const N = KOI_NODES;
       const n = k.nodes;
       const swim = clamp(k.speed / 50, 0.4, 1.4);
       this.koiSeed = k.seed;
       this.koiTone = k.shade;
-      const alpha = clamp((t - k.born) / FADE_IN, 0, 1);
 
       // Travelling body wave, growing toward the tail.
       for (let i = 0; i < N; i++) {
@@ -530,6 +551,15 @@ export class AsciiPond {
         const off = amp * Math.sin(k.phase - s * 5);
         spine[i * 2] = n[i * 2] - ty * off;
         spine[i * 2 + 1] = n[i * 2 + 1] + tx * off;
+      }
+      if (grow < 1) {
+        // Scale the body about its middle while it surfaces.
+        const mx = n[(N >> 1) * 2];
+        const my = n[(N >> 1) * 2 + 1];
+        for (let i = 0; i < N; i++) {
+          spine[i * 2] = mx + (spine[i * 2] - mx) * grow;
+          spine[i * 2 + 1] = my + (spine[i * 2 + 1] - my) * grow;
+        }
       }
       arc[0] = 0;
       for (let i = 1; i < N; i++) {
@@ -594,8 +624,7 @@ export class AsciiPond {
 
           if (centerHit && coverage >= 0.6) {
             koiFlag[idx] = flag;
-            const flicker = (hash3(c, r, Math.floor(t * 6)) - 0.5) * 0.05;
-            koiShade[idx] = clamp(shade + flicker, 0, 1);
+            koiShade[idx] = shade;
             if (flag !== FLAG_FIN && alpha > 0.6) {
               const sc = c + shadowDc;
               const sr = r + shadowDr;
@@ -624,7 +653,7 @@ export class AsciiPond {
    * Skin blocks go straight into per-style batches; glyphs go into the
    * glyph batches, drawn from the atlas once everything is collected.
    */
-  private drawKoi(t: number) {
+  private drawKoi(t: number, calm: boolean) {
     const { ctx, cols, rows, cw, ch, koiFlag, koiShade, koiPaint, koiKey, koiDepth, koiAlpha, blockBatches, koiGlyphs } = this;
     const n = cols * rows;
     for (let i = 0; i < n; i++) {
@@ -639,7 +668,7 @@ export class AsciiPond {
       if (flag === FLAG_EDGE) {
         // Soft, anti-aliased silhouette: no block, just a glyph in the skin colour.
         const set = shade >= 0.5 ? EDGE_HEAVY_IDX : EDGE_LIGHT_IDX;
-        this.pushGlyph(koiGlyphs, i, INK_EDGE + paint, set[(key >>> 8) % set.length], (0.35 + shade * 0.55) * fade);
+        this.pushGlyph(koiGlyphs, i, INK_EDGE + paint, set[(key >>> 8) % set.length], 0.35 + shade * 0.55, fade);
         continue;
       }
 
@@ -665,11 +694,12 @@ export class AsciiPond {
       const step = clamp(Math.round(((level - LEVEL_MIN) / LEVEL_SPAN) * (BLOCK_LEVELS - 1)), 0, BLOCK_LEVELS - 1);
       blockBatches[(paint * 2 + fin) * BLOCK_LEVELS + step].push(i);
 
-      // Glyphs re-roll on a staggered clock so the skin shimmers.
+      // Glyphs re-roll on a staggered clock so the skin shimmers; calm mode
+      // (reduced motion) keeps the skin still.
       const tick = Math.floor(t * 2.4 + (key % 997) / 97);
-      if (flag === FLAG_EYE) this.pushGlyph(koiGlyphs, i, INK_EYE, glyph, fade);
-      else if (hash3(key, tick, 7) < 0.06) this.pushGlyph(koiGlyphs, i, INK_WHITE, glyph, fade);
-      else this.pushGlyph(koiGlyphs, i, INK_KOI + paint, glyph, (paint === PAINT_ORANGE ? 0.85 : 0.8) * fade);
+      if (flag === FLAG_EYE) this.pushGlyph(koiGlyphs, i, INK_EYE, glyph, 1, fade);
+      else if (!calm && hash3(key, tick, 7) < 0.06) this.pushGlyph(koiGlyphs, i, INK_WHITE, glyph, 1, fade);
+      else this.pushGlyph(koiGlyphs, i, INK_KOI + paint, glyph, paint === PAINT_ORANGE ? 0.85 : 0.8, fade);
     }
 
     // One fillStyle per batch; the fade-in rides on globalAlpha.
@@ -693,29 +723,39 @@ export class AsciiPond {
   private drawBarbels(koi: Koi[], t: number) {
     const { koiFlag } = this;
     for (const k of koi) {
-      const fade = clamp((t - k.born) / FADE_IN, 0, 1);
+      const fade = surfacing(t, k.born);
       if (fade <= 0) continue;
-      const L = k.length;
+      // Follow the body while it grows in.
+      const grow = SURFACE_SCALE + (1 - SURFACE_SCALE) * fade;
+      const L = k.length * grow;
+      const mid = (KOI_NODES >> 1) * 2;
+      const hx = k.nodes[mid] + (k.nodes[0] - k.nodes[mid]) * grow;
+      const hy = k.nodes[mid + 1] + (k.nodes[1] - k.nodes[mid + 1]) * grow;
       const fx = Math.cos(k.heading);
       const fy = Math.sin(k.heading);
-      const sx = k.nodes[0] + fx * L * 0.015;
-      const sy = k.nodes[1] + fy * L * 0.015;
+      const sx = hx + fx * L * 0.015;
+      const sy = hy + fy * L * 0.015;
       for (const side of [-1, 1]) {
         const i = this.cellIndex(sx - fy * side * L * 0.075, sy + fx * side * L * 0.075);
         if (i < 0 || (koiFlag[i] && koiFlag[i] !== FLAG_EDGE)) continue;
-        this.pushGlyph(this.koiGlyphs, i, INK_BARBEL, side < 0 ? G_TICK : G_QUOTE, 0.7 * fade);
+        this.pushGlyph(this.koiGlyphs, i, INK_BARBEL, side < 0 ? G_TICK : G_QUOTE, 0.7, fade);
       }
     }
   }
 
-  /** Queue one atlas glyph for a cell, batched by its transparency level. */
-  private pushGlyph(batches: number[][], cell: number, ink: number, glyph: number, alpha: number) {
-    if (alpha < 0.04) return;
+  /**
+   * Queue one atlas glyph for a cell. Its resting transparency picks one of
+   * a few batches; anything animating over time (a fade in or out) rides
+   * along as a continuous multiplier, so fades stay smooth instead of
+   * stepping through the batch levels.
+   */
+  private pushGlyph(batches: number[][], cell: number, ink: number, glyph: number, alpha: number, fade = 1) {
+    if (alpha * fade < 0.04) return;
     const level = clamp(Math.round(alpha * GLYPH_ALPHA_LEVELS) - 1, 0, GLYPH_ALPHA_LEVELS - 1);
-    batches[level].push(cell, ink * GLYPH_COUNT + glyph);
+    batches[level].push(cell, ink * GLYPH_COUNT + glyph, fade);
   }
 
-  /** Copy every queued glyph from the atlas: one globalAlpha per level, no text drawing. */
+  /** Copy every queued glyph from the atlas; no text is drawn per frame. */
   private drawGlyphs(batches: number[][]) {
     const { ctx, atlas, cols, cw, ch, dpr, atlasStrideX, atlasStrideY } = this;
     const sw = cw * dpr;
@@ -723,10 +763,16 @@ export class AsciiPond {
     for (let level = 0; level < batches.length; level++) {
       const batch = batches[level];
       if (!batch.length) continue;
-      ctx.globalAlpha = (level + 1) / GLYPH_ALPHA_LEVELS;
-      for (let k = 0; k < batch.length; k += 2) {
+      const base = (level + 1) / GLYPH_ALPHA_LEVELS;
+      let fade = -1;
+      for (let k = 0; k < batch.length; k += 3) {
         const i = batch[k];
         const a = batch[k + 1];
+        // Only touch globalAlpha when the fade changes (rarely, once koi are in).
+        if (batch[k + 2] !== fade) {
+          fade = batch[k + 2];
+          ctx.globalAlpha = base * fade;
+        }
         const glyph = a % GLYPH_COUNT;
         const ink = (a / GLYPH_COUNT) | 0;
         ctx.drawImage(atlas, glyph * atlasStrideX, ink * atlasStrideY, sw, sh, (i % cols) * cw, ((i / cols) | 0) * ch, cw, ch);
@@ -777,11 +823,13 @@ export class AsciiPond {
     for (const rp of ripples) {
       const age = t - rp.t0;
       if (age < 0 || age > rp.life) continue;
-      const speed = rp.calm ? 70 : 150;
+      // Rings scale with the screen: about 300 px on a phone, about 600 px on a desktop.
+      const minSide = Math.min(this.width, this.height);
+      const speed = rp.calm ? clamp(minSide * 0.1, 45, 80) : clamp(minSide * 0.2, 80, 170);
       const band = LAMBDA * (rp.calm ? 1.1 : 3);
       const strength = rp.calm ? 0.75 : 1;
       // A ripple pushed out by newer ones fades away quickly.
-      const out = t >= rp.fadeStart ? clamp(1 - (t - rp.fadeStart) / RIPPLE_FADE, 0, 1) : 1;
+      const out = t >= rp.fadeStart ? (1 - clamp((t - rp.fadeStart) / RIPPLE_FADE, 0, 1)) ** 3 : 1;
       if (out <= 0) continue;
       const front = 10 + age * speed;
       const env = (strength * out * Math.pow(1 - age / rp.life, 1.3)) / Math.sqrt(1 + front / 220);
@@ -817,9 +865,9 @@ export class AsciiPond {
       }
 
       // The splash itself, for a moment.
-      if (age < 0.45) {
+      if (age < SPLASH) {
         const i = this.cellIndex(rp.x, rp.y);
-        if (i >= 0) this.pushGlyph(waterGlyphs, i, INK_WHITE, G_STAR, (1 - age / 0.45) * out);
+        if (i >= 0) this.pushGlyph(waterGlyphs, i, INK_WHITE, G_STAR, 1, (1 - age / SPLASH) ** 3 * out);
       }
     }
 
