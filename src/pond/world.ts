@@ -13,6 +13,9 @@ export const KOI_NODES = 16;
 /** Seconds a ripple stays on the surface. */
 export const RIPPLE_LIFE = 3.6;
 
+/** Length of the biggest koi for a viewport whose shorter side is minSide. */
+const baseLength = (minSide: number) => clamp(minSide * 0.34, 130, 320);
+
 /** How many koi live in the pond; each gets its own shade of blue. */
 export const KOI_COUNT = 4;
 
@@ -72,18 +75,42 @@ export class World {
   constructor(private count = KOI_COUNT) {}
 
   resize(width: number, height: number) {
+    const oldW = this.width;
+    const oldH = this.height;
     this.width = width;
     this.height = height;
-    if (!this.started) return;
+    if (!this.started || oldW < 1 || oldH < 1) return;
+
+    // Keep the scene proportional: positions follow the viewport, lengths
+    // follow the shorter side, so the pond looks the same at any size.
+    const sx = width / oldW;
+    const sy = height / oldH;
+    const minOld = Math.min(oldW, oldH);
+    const minNew = Math.min(width, height);
+    const sl = baseLength(minNew) / baseLength(minOld);
+
     for (const k of this.koi) {
       const n = k.nodes;
-      const shiftX = clamp(n[0], -k.length, width + k.length) - n[0];
-      const shiftY = clamp(n[1], -k.length, height + k.length) - n[1];
-      if (shiftX === 0 && shiftY === 0) continue;
-      for (let i = 0; i < KOI_NODES; i++) {
-        n[i * 2] += shiftX;
-        n[i * 2 + 1] += shiftY;
+      // Remember each joint's direction, then re-space the spine at the new length.
+      const dirs: number[] = [];
+      for (let i = 1; i < KOI_NODES; i++) {
+        dirs.push(Math.atan2(n[i * 2 + 1] - n[(i - 1) * 2 + 1], n[i * 2] - n[(i - 1) * 2]));
       }
+      k.length *= sl;
+      const seg = k.length / (KOI_NODES - 1);
+      n[0] = clamp(n[0] * sx, -k.length, width + k.length);
+      n[1] = clamp(n[1] * sy, -k.length, height + k.length);
+      for (let i = 1; i < KOI_NODES; i++) {
+        n[i * 2] = n[(i - 1) * 2] + Math.cos(dirs[i - 1]) * seg;
+        n[i * 2 + 1] = n[(i - 1) * 2 + 1] + Math.sin(dirs[i - 1]) * seg;
+      }
+      k.orbitRadius *= minNew / minOld;
+      k.foodX *= sx;
+      k.foodY *= sy;
+    }
+    for (const r of this.ripples) {
+      r.x *= sx;
+      r.y *= sy;
     }
   }
 
@@ -97,7 +124,6 @@ export class World {
   private seed() {
     const { width: W, height: H } = this;
     const minSide = Math.min(W, H);
-    const baseLength = clamp(minSide * 0.34, 130, 320);
     const count = this.count;
 
     // Shuffled shades so no two koi share one.
@@ -110,7 +136,7 @@ export class World {
     this.koi = [];
     for (let i = 0; i < count; i++) {
       const size = rand(0.6, 1);
-      const length = baseLength * size;
+      const length = baseLength(minSide) * size;
       // Spread around the headline, each in its own sector, heading sideways.
       const a = ((i + rand(0.2, 0.8)) / count) * TAU;
       const rx = W * rand(0.28, 0.4);
