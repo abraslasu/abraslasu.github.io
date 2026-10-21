@@ -7,10 +7,12 @@ const MAX_STEPS = 4;
 
 /**
  * Wires World + AsciiPond to a canvas: fixed-timestep loop, resize, pointer
- * input, pausing off-screen, prefers-reduced-motion, and adaptive quality
- * (the canvas resolution steps down if frames keep arriving too slowly).
+ * input, pausing off-screen, and adaptive quality (the canvas resolution
+ * steps down if frames keep arriving too slowly).
  *
- * The pond is still until the first click. Every click is a drop.
+ * The pond is still until the first click. Every click is a drop. The
+ * animation always runs once started; when the visitor's system asks for
+ * reduced motion it switches the world to calm mode instead of stopping.
  */
 export class PondEngine {
   private world: World;
@@ -30,6 +32,7 @@ export class PondEngine {
     this.renderer = new AsciiPond(canvas);
     this.renderer.setFontFamily(getComputedStyle(canvas).fontFamily);
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.world.calm = this.reducedMotion.matches;
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
@@ -47,7 +50,7 @@ export class PondEngine {
     document.fonts?.ready.then(() => {
       if (this.disposed) return;
       this.renderer.refreshGlyphs();
-      if (!this.world.started || this.reducedMotion.matches) this.drawStill();
+      if (!this.world.started) this.drawStill();
     });
   }
 
@@ -68,12 +71,12 @@ export class PondEngine {
     this.renderer.resize(rect.width, rect.height, dpr);
     this.quality.settle(performance.now());
     this.world.resize(rect.width, rect.height);
-    if (!this.world.started || this.reducedMotion.matches) this.drawStill();
+    if (!this.world.started) this.drawStill();
   }
 
   private schedule() {
     cancelAnimationFrame(this.raf);
-    if (this.disposed || !this.visible || !this.world.started || this.reducedMotion.matches) return;
+    if (this.disposed || !this.visible || !this.world.started) return;
     this.last = performance.now();
     this.quality.settle(this.last);
     this.raf = requestAnimationFrame(this.frame);
@@ -97,23 +100,14 @@ export class PondEngine {
     this.raf = requestAnimationFrame(this.frame);
   };
 
-  /** Reduced motion (or not started yet): a single frame, no loop. */
+  /** Before the first click: the still surface. */
   private drawStill() {
-    if (!this.world.started) {
-      this.renderer.drawEmpty();
-      return;
-    }
-    for (let i = 0; i < 40; i++) this.world.step(STEP);
-    this.renderer.render(this.world, STEP);
+    this.renderer.drawEmpty();
   }
 
+  /** The visitor toggled reduced motion: switch calm mode, keep animating. */
   private onMotionPreference = () => {
-    if (this.reducedMotion.matches) {
-      cancelAnimationFrame(this.raf);
-      this.drawStill();
-    } else {
-      this.schedule();
-    }
+    this.world.calm = this.reducedMotion.matches;
   };
 
   private onPointerDown = (e: PointerEvent) => {
@@ -125,7 +119,6 @@ export class PondEngine {
     const first = !this.world.started;
     this.world.start();
     this.world.drop(x, y);
-    if (this.reducedMotion.matches) this.drawStill();
-    else if (first) this.schedule();
+    if (first) this.schedule();
   };
 }

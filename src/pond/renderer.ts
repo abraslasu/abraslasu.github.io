@@ -16,7 +16,7 @@
  * rings cost no more than a single one.
  */
 import { blob, clamp, hash3, smoothstep, TAU } from './math';
-import { KOI_NODES, RIPPLE_FADE, RIPPLE_LIFE, type Koi, type Ripple, type World } from './world';
+import { KOI_NODES, RIPPLE_FADE, type Koi, type Ripple, type World } from './world';
 
 export const POND_BLUE = '#d7e8f4';
 
@@ -765,23 +765,26 @@ export class AsciiPond {
    * ripples add into one field, so where rings cross they interfere, and a
    * cell is drawn once however many ripples cover it. Crests are glyphs
    * picked by the direction of the strongest ring (| - / \), troughs are dots.
+   * Calm ripples (reduced motion) spread slower, are fainter and carry a
+   * single ring instead of a train of them.
    */
   private drawRipples(ripples: Ripple[], t: number) {
     const { cols, rows, cw, ch, rippleW, rippleBest, rippleDx, rippleDy, rippleStamp, rippleCells, waterGlyphs } = this;
-    const SPEED = 150;
     const LAMBDA = 30;
     const stamp = ++this.frameId;
     rippleCells.length = 0;
 
     for (const rp of ripples) {
       const age = t - rp.t0;
-      if (age < 0 || age > RIPPLE_LIFE) continue;
+      if (age < 0 || age > rp.life) continue;
+      const speed = rp.calm ? 70 : 150;
+      const band = LAMBDA * (rp.calm ? 1.1 : 3);
+      const strength = rp.calm ? 0.75 : 1;
       // A ripple pushed out by newer ones fades away quickly.
       const out = t >= rp.fadeStart ? clamp(1 - (t - rp.fadeStart) / RIPPLE_FADE, 0, 1) : 1;
       if (out <= 0) continue;
-      const front = 10 + age * SPEED;
-      const env = (out * Math.pow(1 - age / RIPPLE_LIFE, 1.3)) / Math.sqrt(1 + front / 220);
-      const band = LAMBDA * 3;
+      const front = 10 + age * speed;
+      const env = (strength * out * Math.pow(1 - age / rp.life, 1.3)) / Math.sqrt(1 + front / 220);
 
       const c0 = Math.max(0, Math.floor((rp.x - front - LAMBDA) / cw));
       const c1 = Math.min(cols - 1, Math.floor((rp.x + front + LAMBDA) / cw));

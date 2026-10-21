@@ -12,6 +12,8 @@ import { angleDiff, clamp, current, rand, randInt, TAU } from './math';
 export const KOI_NODES = 16;
 /** Seconds a ripple stays on the surface. */
 export const RIPPLE_LIFE = 3.6;
+/** Calm mode (prefers-reduced-motion): ripples die out sooner, so they stay small. */
+export const CALM_RIPPLE_LIFE = 2;
 /** At most this many ripples spread at once; a newer drop fades out the oldest. */
 export const MAX_RIPPLES = 4;
 /** Seconds an evicted ripple takes to fade away. */
@@ -57,6 +59,10 @@ export interface Ripple {
   x: number;
   y: number;
   t0: number;
+  /** Seconds it spreads for; shorter in calm mode. */
+  life: number;
+  /** Fewer, smaller rings, for prefers-reduced-motion. */
+  calm: boolean;
   /** When a newer drop pushed this one out (Infinity while it spreads freely). */
   fadeStart: number;
 }
@@ -75,6 +81,11 @@ export class World {
   koi: Koi[] = [];
   ripples: Ripple[] = [];
   events: WorldEvent[] = [];
+  /**
+   * Calm mode, for visitors who asked their system for reduced motion: the
+   * koi swim slower and never dart, and drops make small, short ripples.
+   */
+  calm = false;
 
   private tmp = { x: 0, y: 0 };
 
@@ -195,7 +206,14 @@ export class World {
         live--;
       }
     }
-    this.ripples.push({ x, y, t0: this.time, fadeStart: Infinity });
+    this.ripples.push({
+      x,
+      y,
+      t0: this.time,
+      life: this.calm ? CALM_RIPPLE_LIFE : RIPPLE_LIFE,
+      calm: this.calm,
+      fadeStart: Infinity,
+    });
 
     // The nearer half of the pond bolts away from the drop; the farther half
     // comes over to see what fell in.
@@ -208,7 +226,9 @@ export class World {
       k.foodY = y;
       if (i < nearCount) {
         // Closer drops startle harder, but everyone in the near half bolts.
-        k.startle = Math.max(k.startle, 0.85 + 0.15 * clamp(1 - d / (Math.min(this.width, this.height) * 0.5), 0, 1));
+        // In calm mode they only drift away, without a burst of speed.
+        const startle = 0.85 + 0.15 * clamp(1 - d / (Math.min(this.width, this.height) * 0.5), 0, 1);
+        k.startle = Math.max(k.startle, this.calm ? startle * 0.25 : startle);
         k.foodUntil = 0;
       } else {
         k.startle = 0;
@@ -223,7 +243,7 @@ export class World {
     // Drop ripples that have spread out or finished fading, in place.
     let keep = 0;
     for (const r of this.ripples) {
-      if (this.time - r.t0 <= RIPPLE_LIFE && this.time - r.fadeStart <= RIPPLE_FADE) this.ripples[keep++] = r;
+      if (this.time - r.t0 <= r.life && this.time - r.fadeStart <= RIPPLE_FADE) this.ripples[keep++] = r;
     }
     this.ripples.length = keep;
   }
@@ -257,8 +277,9 @@ export class World {
         const tx = k.foodX - hx;
         const ty = k.foodY - hy;
         const d = Math.hypot(tx, ty) || 1;
-        dx += (tx / d) * 2.2;
-        dy += (ty / d) * 2.2;
+        const pull = this.calm ? 1.7 : 2.2;
+        dx += (tx / d) * pull;
+        dy += (ty / d) * pull;
         closing = clamp(1 - d / (L * 0.9), 0, 1);
         if (d < L * 0.14) k.foodUntil = Math.min(k.foodUntil, time + 0.5);
       } else {
@@ -276,8 +297,9 @@ export class World {
         const ax = hx - k.foodX;
         const ay = hy - k.foodY;
         const d = Math.hypot(ax, ay) || 1;
-        dx += (ax / d) * 3 * k.startle;
-        dy += (ay / d) * 3 * k.startle;
+        const push = this.calm ? 4 : 3;
+        dx += (ax / d) * push * k.startle;
+        dy += (ay / d) * push * k.startle;
         k.startle *= Math.exp(-dt * 0.7);
       }
 
@@ -326,16 +348,25 @@ export class World {
 
       const desired = Math.atan2(dy, dx);
       // Koi can't pivot on the spot: the turning circle grows with speed.
-      const alert = feeding ? 1.4 + closing : k.startle > 0.3 ? 1.6 : 0.75;
+      let alert = feeding ? 1.4 + closing : k.startle > 0.3 ? 1.6 : 0.75;
+      // Calm koi turn in wide, unhurried arcs.
+      if (this.calm) alert = Math.min(alert, 0.8);
       const agility = Math.min(alert, k.speed / (L * 0.2));
       const maxTurn = agility * dt;
       const turned = clamp(angleDiff(k.heading, desired), -maxTurn, maxTurn);
       k.heading += turned;
       k.turn += (turned / dt - k.turn) * Math.min(1, dt * 3);
 
-      const cruise = 16 + L * 0.06;
-      const targetSpeed = feeding ? cruise * (3.4 - closing * 1.6) : k.startle > 0.3 ? cruise * 3.2 : cruise;
-      k.speed += (targetSpeed - k.speed) * Math.min(1, dt * 1.6);
+      let targetSpeed: number;
+      if (this.calm) {
+        // Slower, and never a dash: approach at a stroll, drift away at cruise.
+        const cruise = (16 + L * 0.06) * 0.6;
+        targetSpeed = feeding ? cruise * (2 - closing * 0.8) : cruise;
+      } else {
+        const cruise = 16 + L * 0.06;
+        targetSpeed = feeding ? cruise * (3.4 - closing * 1.6) : k.startle > 0.3 ? cruise * 3.2 : cruise;
+      }
+      k.speed += (targetSpeed - k.speed) * Math.min(1, dt * (this.calm ? 0.8 : 1.6));
       k.phase += dt * (1.8 + k.speed / 28);
 
       nodes[0] += Math.cos(k.heading) * k.speed * dt;
