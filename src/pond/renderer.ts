@@ -6,9 +6,17 @@
  *   4. koi rasterised cell by cell with supersampled edges: colour blocks
  *      shaded by the light, glyph texture, patches of hi (red) and sumi (black)
  *   5. the rings of every drop, drawn as glyph circles over everything
+ *
+ * Built to stay smooth on phones. Safari draws canvas text slowly, so every
+ * glyph is drawn once, per ink, into an atlas and then copied with
+ * drawImage; no text is drawn per frame. Colours come from small
+ * precomputed tables and draw calls are batched by style and by
+ * transparency level, so a frame switches styles a few dozen times rather
+ * than thousands. All ripples add into one per-cell field, so overlapping
+ * rings cost no more than a single one.
  */
 import { blob, clamp, hash3, smoothstep, TAU } from './math';
-import { KOI_NODES, RIPPLE_LIFE, type Koi, type World } from './world';
+import { KOI_NODES, RIPPLE_FADE, RIPPLE_LIFE, type Koi, type Ripple, type World } from './world';
 
 export const POND_BLUE = '#d7e8f4';
 
@@ -35,6 +43,65 @@ const SKIN_RAMP = ':;t%SX8#@';
 const FIN_GLYPHS = '%;tS:';
 const EDGE_HEAVY = ':;';
 const EDGE_LIGHT = ".',`";
+
+// ── glyph atlas ─────────────────────────────────────────────────────────
+// Every character the pond uses, drawn once per ink into an offscreen atlas.
+const GLYPHS = ":;t%SX8#@.',`o|-/\\·*";
+const GLYPH_COUNT = GLYPHS.length;
+const glyphIndices = (chars: string) => [...chars].map((ch) => GLYPHS.indexOf(ch));
+const SKIN_IDX = glyphIndices(SKIN_RAMP);
+const FIN_IDX = glyphIndices(FIN_GLYPHS);
+const EDGE_HEAVY_IDX = glyphIndices(EDGE_HEAVY);
+const EDGE_LIGHT_IDX = glyphIndices(EDGE_LIGHT);
+const G_EYE = GLYPHS.indexOf('o');
+const G_VBAR = GLYPHS.indexOf('|');
+const G_HBAR = GLYPHS.indexOf('-');
+const G_SLASH = GLYPHS.indexOf('/');
+const G_BACKSLASH = GLYPHS.indexOf('\\');
+const G_DOT = GLYPHS.indexOf('·');
+const G_PERIOD = GLYPHS.indexOf('.');
+const G_STAR = GLYPHS.indexOf('*');
+const G_TICK = GLYPHS.indexOf('`');
+const G_QUOTE = GLYPHS.indexOf("'");
+
+// Inks (atlas rows): the glyph colour of each paint, the edge colour of each
+// paint, then the eye, white highlights, barbels and ripple crests.
+const PAINT_COUNT = PAINT_RGB.length;
+const INK_KOI = 0;
+const INK_EDGE = PAINT_COUNT;
+const INK_EYE = PAINT_COUNT * 2;
+const INK_WHITE = INK_EYE + 1;
+const INK_BARBEL = INK_EYE + 2;
+const INK_RIPPLE = INK_EYE + 3;
+const INKS: string[] = [
+  ...PAINT_RGB.map(([r, g, b], p) =>
+    p === PAINT_ORANGE ? rgb(r * 0.55, g * 0.45, b * 0.4) : rgb(r * 1.45 + 30, g * 1.35 + 30, b * 1.2 + 30),
+  ),
+  ...PAINT_RGB.map(([r, g, b]) => rgb(r * 0.9, g * 0.9, b * 0.9)),
+  rgb(28, 30, 36),
+  rgb(255, 255, 255),
+  rgb(46, 48, 56),
+  rgb(52, 104, 160),
+];
+
+/** Glyph transparency is quantised to this many levels, one batch each. */
+const GLYPH_ALPHA_LEVELS = 8;
+
+// Skin blocks: per paint, solid or fin, in a few light levels, precomputed.
+const BLOCK_LEVELS = 12;
+const LEVEL_MIN = 0.4;
+const LEVEL_SPAN = 0.75;
+const BLOCK_STYLES: string[] = [];
+for (let p = 0; p < PAINT_COUNT; p++) {
+  const [r, g, b] = PAINT_RGB[p];
+  for (let fin = 0; fin < 2; fin++) {
+    const alpha = fin ? (p === PAINT_ORANGE ? 0.85 : 0.6) : 1;
+    for (let step = 0; step < BLOCK_LEVELS; step++) {
+      const level = LEVEL_MIN + (step / (BLOCK_LEVELS - 1)) * LEVEL_SPAN;
+      BLOCK_STYLES.push(rgb(r * level, g * level, b * level, alpha));
+    }
+  }
+}
 
 const FLAG_BODY = 1;
 const FLAG_EDGE = 2;
@@ -98,6 +165,27 @@ export class AsciiPond {
   private rows = 0;
   private fontFamily = 'ui-monospace, Menlo, monospace';
 
+  private atlas: HTMLCanvasElement;
+  private atlasStrideX = 1;
+  private atlasStrideY = 1;
+  /** Fewer supersamples per cell on the lowest quality level. */
+  private subsampleLength = SUBSAMPLES.length;
+
+  // Per-frame draw batches, reused so a frame allocates nothing.
+  private blockBatches: number[][] = BLOCK_STYLES.map(() => []);
+  private koiGlyphs: number[][] = Array.from({ length: GLYPH_ALPHA_LEVELS }, () => []);
+  private waterGlyphs: number[][] = Array.from({ length: GLYPH_ALPHA_LEVELS }, () => []);
+  private wakeBatches: number[][] = Array.from({ length: ALPHA_LEVELS }, () => []);
+
+  // All ripples sum into one field; each cell keeps the direction of its strongest ring.
+  private rippleW = new Float32Array(0);
+  private rippleBest = new Float32Array(0);
+  private rippleDx = new Float32Array(0);
+  private rippleDy = new Float32Array(0);
+  private rippleStamp = new Uint32Array(0);
+  private rippleCells: number[] = [];
+  private frameId = 0;
+
   private energy = new Float32Array(0);
   private energyTmp = new Float32Array(0);
   private wakeStyles: string[] = [];
@@ -129,6 +217,7 @@ export class AsciiPond {
     if (!ctx) throw new Error('2D canvas unavailable');
     this.ctx = ctx;
     this.bg = document.createElement('canvas');
+    this.atlas = document.createElement('canvas');
     for (let l = 0; l < ALPHA_LEVELS; l++) {
       this.wakeStyles.push(`rgba(255,255,255,${(((l + 1) / ALPHA_LEVELS) * 0.9).toFixed(3)})`);
     }
@@ -136,6 +225,16 @@ export class AsciiPond {
 
   setFontFamily(family: string) {
     if (family) this.fontFamily = family;
+  }
+
+  /** Lowest quality: half the supersamples per cell. */
+  setLowDetail(low: boolean) {
+    this.subsampleLength = low ? SUBSAMPLES.length / 2 : SUBSAMPLES.length;
+  }
+
+  /** Redraw the atlas, e.g. once a webfont has loaded. */
+  refreshGlyphs() {
+    if (this.cols > 0) this.buildAtlas();
   }
 
   resize(width: number, height: number, dpr: number) {
@@ -162,7 +261,36 @@ export class AsciiPond {
     this.koiDepth = new Float32Array(n);
     this.koiAlpha = new Float32Array(n);
     this.koiShadow = new Uint8Array(n);
+    this.rippleW = new Float32Array(n);
+    this.rippleBest = new Float32Array(n);
+    this.rippleDx = new Float32Array(n);
+    this.rippleDy = new Float32Array(n);
+    this.rippleStamp = new Uint32Array(n);
     this.paintBackground();
+    this.buildAtlas();
+  }
+
+  /** Draw every glyph in every ink once, at device resolution. */
+  private buildAtlas() {
+    const { atlas, dpr, cw, ch } = this;
+    this.atlasStrideX = Math.ceil(cw * dpr) + 2;
+    this.atlasStrideY = Math.ceil(ch * dpr) + 2;
+    atlas.width = this.atlasStrideX * GLYPH_COUNT;
+    atlas.height = this.atlasStrideY * INKS.length;
+    const g = atlas.getContext('2d');
+    if (!g) return;
+    g.clearRect(0, 0, atlas.width, atlas.height);
+    g.font = `600 ${Math.round(ch * 0.74)}px ${this.fontFamily}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (let ink = 0; ink < INKS.length; ink++) {
+      g.fillStyle = INKS[ink];
+      for (let gl = 0; gl < GLYPH_COUNT; gl++) {
+        g.setTransform(dpr, 0, 0, dpr, gl * this.atlasStrideX, ink * this.atlasStrideY);
+        g.fillText(GLYPHS[gl], cw / 2, ch / 2 + 1);
+      }
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   private paintBackground() {
@@ -198,7 +326,7 @@ export class AsciiPond {
   }
 
   render(world: World, dt: number) {
-    const { ctx, dpr, cols, ch } = this;
+    const { ctx, dpr, cols } = this;
     if (cols === 0) return;
     const t = world.time;
 
@@ -213,14 +341,11 @@ export class AsciiPond {
 
     this.drawShadows();
     this.drawWake();
-
-    ctx.font = `600 ${Math.round(ch * 0.74)}px ${this.fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
     this.drawKoi(t);
-    this.drawBarbels(world.koi);
+    this.drawBarbels(world.koi, t);
+    this.drawGlyphs(this.koiGlyphs);
     this.drawRipples(world.ripples, t);
+    this.drawGlyphs(this.waterGlyphs);
   }
 
   // ── simulation → field ──────────────────────────────────────────────
@@ -452,11 +577,12 @@ export class AsciiPond {
           const v = this.hitV;
 
           let hits = centerHit ? 1 : 0;
-          for (let i = 0; i < SUBSAMPLES.length; i += 2) {
+          const subLen = this.subsampleLength;
+          for (let i = 0; i < subLen; i += 2) {
             if (this.sampleKoi(x + SUBSAMPLES[i] * cw, y + SUBSAMPLES[i + 1] * ch, L)) hits++;
           }
           if (hits === 0) continue;
-          const coverage = hits / 5;
+          const coverage = hits / (1 + subLen / 2);
 
           const idx = r * cols + c;
           // Body-anchored key so each glyph rides along with the skin.
@@ -494,123 +620,167 @@ export class AsciiPond {
     }
   }
 
+  /**
+   * Skin blocks go straight into per-style batches; glyphs go into the
+   * glyph batches, drawn from the atlas once everything is collected.
+   */
   private drawKoi(t: number) {
-    const { ctx, cols, rows, cw, ch, koiFlag, koiShade, koiPaint, koiKey, koiDepth, koiAlpha } = this;
+    const { ctx, cols, rows, cw, ch, koiFlag, koiShade, koiPaint, koiKey, koiDepth, koiAlpha, blockBatches, koiGlyphs } = this;
     const n = cols * rows;
     for (let i = 0; i < n; i++) {
       const flag = koiFlag[i];
       if (!flag) continue;
       const fade = koiAlpha[i];
       if (fade <= 0) continue;
-      const col = i % cols;
-      const row = (i / cols) | 0;
-      const x = col * cw;
-      const y = row * ch;
       const key = koiKey[i];
       const shade = koiShade[i];
-      const dim = 0.82 + 0.18 * koiDepth[i];
       const paint = koiPaint[i];
-      const [pr, pg, pb] = PAINT_RGB[paint];
-      const orange = paint === PAINT_ORANGE;
-
-      // Glyphs re-roll on a staggered clock so the skin shimmers.
-      const tick = Math.floor(t * 2.4 + (key % 997) / 97);
-      const roll = hash3(key, tick, 7);
 
       if (flag === FLAG_EDGE) {
         // Soft, anti-aliased silhouette: no block, just a glyph in the skin colour.
-        const set = shade >= 0.5 ? EDGE_HEAVY : EDGE_LIGHT;
-        ctx.fillStyle = rgb(pr * 0.9, pg * 0.9, pb * 0.9, (0.35 + shade * 0.55) * fade);
-        ctx.fillText(set[(key >>> 8) % set.length], x + cw / 2, y + ch / 2 + 1);
+        const set = shade >= 0.5 ? EDGE_HEAVY_IDX : EDGE_LIGHT_IDX;
+        this.pushGlyph(koiGlyphs, i, INK_EDGE + paint, set[(key >>> 8) % set.length], (0.35 + shade * 0.55) * fade);
         continue;
       }
 
-      let glyph: string;
       let level: number;
-      let alpha = 1;
+      let glyph: number;
+      let fin = 0;
       if (flag === FLAG_EYE) {
         level = 1;
-        glyph = 'o';
+        glyph = G_EYE;
       } else if (flag === FLAG_FIN) {
         level = 0.75 + shade * 0.35;
-        alpha = orange ? 0.85 : 0.6;
-        glyph = FIN_GLYPHS[(key >>> 8) % FIN_GLYPHS.length];
+        fin = 1;
+        glyph = FIN_IDX[(key >>> 8) % FIN_IDX.length];
       } else if (flag === FLAG_DORSAL) {
         level = 0.8 + shade * 0.3;
-        glyph = FIN_GLYPHS[(key >>> 8) % FIN_GLYPHS.length];
+        glyph = FIN_IDX[(key >>> 8) % FIN_IDX.length];
       } else {
         level = 0.55 + shade * 0.55;
         const jitter = ((key >>> 4) % 3) - 1;
-        glyph = SKIN_RAMP[clamp(Math.floor((1 - shade) * 8.99) + jitter, 0, SKIN_RAMP.length - 1)];
+        glyph = SKIN_IDX[clamp(Math.floor((1 - shade) * 8.99) + jitter, 0, SKIN_IDX.length - 1)];
       }
-      level *= dim;
-      ctx.fillStyle = rgb(pr * level, pg * level, pb * level, alpha * fade);
-      ctx.fillRect(x + 1, y + 1, cw - 1, ch - 1);
+      level *= 0.82 + 0.18 * koiDepth[i];
+      const step = clamp(Math.round(((level - LEVEL_MIN) / LEVEL_SPAN) * (BLOCK_LEVELS - 1)), 0, BLOCK_LEVELS - 1);
+      blockBatches[(paint * 2 + fin) * BLOCK_LEVELS + step].push(i);
 
-      let color: string;
-      if (flag === FLAG_EYE) color = rgb(28, 30, 36, fade);
-      else if (roll < 0.06) color = rgb(255, 255, 255, fade);
-      else if (orange) color = rgb(pr * 0.55, pg * 0.45, pb * 0.4, 0.85 * fade);
-      else color = rgb(pr * 1.45 + 30, pg * 1.35 + 30, pb * 1.2 + 30, 0.8 * fade);
-      ctx.fillStyle = color;
-      ctx.fillText(glyph, x + cw / 2, y + ch / 2 + 1);
+      // Glyphs re-roll on a staggered clock so the skin shimmers.
+      const tick = Math.floor(t * 2.4 + (key % 997) / 97);
+      if (flag === FLAG_EYE) this.pushGlyph(koiGlyphs, i, INK_EYE, glyph, fade);
+      else if (hash3(key, tick, 7) < 0.06) this.pushGlyph(koiGlyphs, i, INK_WHITE, glyph, fade);
+      else this.pushGlyph(koiGlyphs, i, INK_KOI + paint, glyph, (paint === PAINT_ORANGE ? 0.85 : 0.8) * fade);
     }
+
+    // One fillStyle per batch; the fade-in rides on globalAlpha.
+    let alpha = 1;
+    ctx.globalAlpha = 1;
+    for (let b = 0; b < blockBatches.length; b++) {
+      const cells = blockBatches[b];
+      if (!cells.length) continue;
+      ctx.fillStyle = BLOCK_STYLES[b];
+      for (const i of cells) {
+        const f = koiAlpha[i];
+        if (f !== alpha) ctx.globalAlpha = alpha = f;
+        ctx.fillRect((i % cols) * cw + 1, ((i / cols) | 0) * ch + 1, cw - 1, ch - 1);
+      }
+      cells.length = 0;
+    }
+    ctx.globalAlpha = 1;
   }
 
   /** Two short whiskers at the mouth, the thing that says "koi" at a glance. */
-  private drawBarbels(koi: Koi[]) {
-    const { ctx, cw, ch, koiFlag } = this;
-    ctx.fillStyle = 'rgba(46,48,56,0.7)';
+  private drawBarbels(koi: Koi[], t: number) {
+    const { koiFlag } = this;
     for (const k of koi) {
+      const fade = clamp((t - k.born) / FADE_IN, 0, 1);
+      if (fade <= 0) continue;
       const L = k.length;
       const fx = Math.cos(k.heading);
       const fy = Math.sin(k.heading);
       const sx = k.nodes[0] + fx * L * 0.015;
       const sy = k.nodes[1] + fy * L * 0.015;
       for (const side of [-1, 1]) {
-        const px = sx - fy * side * L * 0.075;
-        const py = sy + fx * side * L * 0.075;
-        const i = this.cellIndex(px, py);
+        const i = this.cellIndex(sx - fy * side * L * 0.075, sy + fx * side * L * 0.075);
         if (i < 0 || (koiFlag[i] && koiFlag[i] !== FLAG_EDGE)) continue;
-        ctx.fillText(side < 0 ? '`' : "'", (i % this.cols) * cw + cw / 2, ((i / this.cols) | 0) * ch + ch / 2 + 1);
+        this.pushGlyph(this.koiGlyphs, i, INK_BARBEL, side < 0 ? G_TICK : G_QUOTE, 0.7 * fade);
       }
     }
+  }
+
+  /** Queue one atlas glyph for a cell, batched by its transparency level. */
+  private pushGlyph(batches: number[][], cell: number, ink: number, glyph: number, alpha: number) {
+    if (alpha < 0.04) return;
+    const level = clamp(Math.round(alpha * GLYPH_ALPHA_LEVELS) - 1, 0, GLYPH_ALPHA_LEVELS - 1);
+    batches[level].push(cell, ink * GLYPH_COUNT + glyph);
+  }
+
+  /** Copy every queued glyph from the atlas: one globalAlpha per level, no text drawing. */
+  private drawGlyphs(batches: number[][]) {
+    const { ctx, atlas, cols, cw, ch, dpr, atlasStrideX, atlasStrideY } = this;
+    const sw = cw * dpr;
+    const sh = ch * dpr;
+    for (let level = 0; level < batches.length; level++) {
+      const batch = batches[level];
+      if (!batch.length) continue;
+      ctx.globalAlpha = (level + 1) / GLYPH_ALPHA_LEVELS;
+      for (let k = 0; k < batch.length; k += 2) {
+        const i = batch[k];
+        const a = batch[k + 1];
+        const glyph = a % GLYPH_COUNT;
+        const ink = (a / GLYPH_COUNT) | 0;
+        ctx.drawImage(atlas, glyph * atlasStrideX, ink * atlasStrideY, sw, sh, (i % cols) * cw, ((i / cols) | 0) * ch, cw, ch);
+      }
+      batch.length = 0;
+    }
+    ctx.globalAlpha = 1;
   }
 
   // ── water ───────────────────────────────────────────────────────────
 
   private drawWake() {
-    const { ctx, cols, rows, cw, ch, energy, koiFlag } = this;
+    const { ctx, cols, rows, cw, ch, energy, koiFlag, wakeBatches } = this;
     const n = cols * rows;
-    const size = Math.max(2, Math.round(cw * 0.19)) + 1;
-    let current = -1;
     for (let i = 0; i < n; i++) {
       const e = energy[i];
       if (e < 0.3 || (koiFlag[i] && koiFlag[i] !== FLAG_EDGE)) continue;
-      const level = clamp(Math.floor((e - 0.3) * 5), 0, ALPHA_LEVELS - 1);
-      if (level !== current) {
-        ctx.fillStyle = this.wakeStyles[level];
-        current = level;
+      wakeBatches[clamp(Math.floor((e - 0.3) * 5), 0, ALPHA_LEVELS - 1)].push(i);
+    }
+    const size = Math.max(2, Math.round(cw * 0.19)) + 1;
+    for (let level = 0; level < wakeBatches.length; level++) {
+      const cells = wakeBatches[level];
+      if (!cells.length) continue;
+      ctx.fillStyle = this.wakeStyles[level];
+      for (const i of cells) {
+        const col = i % cols;
+        const row = (i / cols) | 0;
+        ctx.fillRect(Math.round(col * cw + cw * 0.66 - size / 2), Math.round(row * ch + ch * 0.64 - size / 2), size, size);
       }
-      const col = i % cols;
-      const row = (i / cols) | 0;
-      ctx.fillRect(Math.round(col * cw + cw * 0.66 - size / 2), Math.round(row * ch + ch * 0.64 - size / 2), size, size);
+      cells.length = 0;
     }
   }
 
   /**
-   * Each drop sends a wave front outwards with a few trailing rings. Crests
-   * are drawn as glyph circles (| - / \ picked by angle), troughs as dots.
+   * Each drop sends a wave front outwards with a few trailing rings. All
+   * ripples add into one field, so where rings cross they interfere, and a
+   * cell is drawn once however many ripples cover it. Crests are glyphs
+   * picked by the direction of the strongest ring (| - / \), troughs are dots.
    */
-  private drawRipples(ripples: { x: number; y: number; t0: number }[], t: number) {
-    const { ctx, cols, rows, cw, ch } = this;
+  private drawRipples(ripples: Ripple[], t: number) {
+    const { cols, rows, cw, ch, rippleW, rippleBest, rippleDx, rippleDy, rippleStamp, rippleCells, waterGlyphs } = this;
     const SPEED = 150;
     const LAMBDA = 30;
+    const stamp = ++this.frameId;
+    rippleCells.length = 0;
+
     for (const rp of ripples) {
       const age = t - rp.t0;
       if (age < 0 || age > RIPPLE_LIFE) continue;
+      // A ripple pushed out by newer ones fades away quickly.
+      const out = t >= rp.fadeStart ? clamp(1 - (t - rp.fadeStart) / RIPPLE_FADE, 0, 1) : 1;
+      if (out <= 0) continue;
       const front = 10 + age * SPEED;
-      const env = Math.pow(1 - age / RIPPLE_LIFE, 1.3) / Math.sqrt(1 + front / 220);
+      const env = (out * Math.pow(1 - age / RIPPLE_LIFE, 1.3)) / Math.sqrt(1 + front / 220);
       const band = LAMBDA * 3;
 
       const c0 = Math.max(0, Math.floor((rp.x - front - LAMBDA) / cw));
@@ -619,39 +789,51 @@ export class AsciiPond {
       const r1 = Math.min(rows - 1, Math.floor((rp.y + front + LAMBDA) / ch));
 
       for (let r = r0; r <= r1; r++) {
-        const cy = r * ch + ch / 2;
+        const dy = r * ch + ch / 2 - rp.y;
         for (let c = c0; c <= c1; c++) {
-          const cx = c * cw + cw / 2;
-          const dx = cx - rp.x;
-          const dy = cy - rp.y;
+          const dx = c * cw + cw / 2 - rp.x;
           const d = Math.hypot(dx, dy);
           if (d > front + LAMBDA * 0.4 || d < front - band) continue;
           const behind = Math.max(0, front - d);
           const w = Math.cos(((d - front) / LAMBDA) * TAU) * Math.exp(-behind / (LAMBDA * 1.6)) * env;
-          if (Math.abs(w) < 0.1) continue;
-          if (w > 0) {
-            const ax = Math.abs(dx) / (d || 1);
-            const ay = Math.abs(dy) / (d || 1);
-            let glyph: string;
-            if (ax > 0.82) glyph = '|';
-            else if (ay > 0.82) glyph = '-';
-            else glyph = dx * dy > 0 ? '\\' : '/';
-            // Crests read as deeper water against the pale surface; troughs catch the light.
-            ctx.fillStyle = `rgba(52,104,160,${clamp(w * 1.5, 0, 1).toFixed(2)})`;
-            ctx.fillText(glyph, cx, cy + 1);
-          } else {
-            ctx.fillStyle = `rgba(255,255,255,${clamp(-w * 1.6, 0, 1).toFixed(2)})`;
-            ctx.fillText(-w > 0.45 ? '·' : '.', cx, cy + 1);
+          const i = r * cols + c;
+          if (rippleStamp[i] !== stamp) {
+            rippleStamp[i] = stamp;
+            rippleW[i] = 0;
+            rippleBest[i] = 0;
+            rippleCells.push(i);
+          }
+          rippleW[i] += w;
+          const aw = Math.abs(w);
+          if (aw > rippleBest[i]) {
+            rippleBest[i] = aw;
+            rippleDx[i] = dx;
+            rippleDy[i] = dy;
           }
         }
       }
 
       // The splash itself, for a moment.
       if (age < 0.45) {
-        const a = 1 - age / 0.45;
-        ctx.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`;
         const i = this.cellIndex(rp.x, rp.y);
-        if (i >= 0) ctx.fillText('*', (i % cols) * cw + cw / 2, ((i / cols) | 0) * ch + ch / 2 + 1);
+        if (i >= 0) this.pushGlyph(waterGlyphs, i, INK_WHITE, G_STAR, (1 - age / 0.45) * out);
+      }
+    }
+
+    for (const i of rippleCells) {
+      const w = rippleW[i];
+      if (w > 0.1) {
+        // Crests read as deeper water against the pale surface.
+        const dx = rippleDx[i];
+        const dy = rippleDy[i];
+        const d = Math.hypot(dx, dy) || 1;
+        const ax = Math.abs(dx) / d;
+        const ay = Math.abs(dy) / d;
+        const glyph = ax > 0.82 ? G_VBAR : ay > 0.82 ? G_HBAR : dx * dy > 0 ? G_BACKSLASH : G_SLASH;
+        this.pushGlyph(waterGlyphs, i, INK_RIPPLE, glyph, Math.min(1, w * 1.5));
+      } else if (w < -0.1) {
+        // Troughs catch the light.
+        this.pushGlyph(waterGlyphs, i, INK_WHITE, -w > 0.45 ? G_DOT : G_PERIOD, Math.min(1, -w * 1.6));
       }
     }
   }

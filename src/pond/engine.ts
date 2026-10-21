@@ -1,3 +1,4 @@
+import { QualityGovernor } from './quality';
 import { AsciiPond } from './renderer';
 import { World } from './world';
 
@@ -6,7 +7,8 @@ const MAX_STEPS = 4;
 
 /**
  * Wires World + AsciiPond to a canvas: fixed-timestep loop, resize, pointer
- * input, pausing off-screen, and prefers-reduced-motion.
+ * input, pausing off-screen, prefers-reduced-motion, and adaptive quality
+ * (the canvas resolution steps down if frames keep arriving too slowly).
  *
  * The pond is still until the first click. Every click is a drop.
  */
@@ -21,6 +23,7 @@ export class PondEngine {
   private resizeObserver: ResizeObserver;
   private intersectionObserver: IntersectionObserver;
   private disposed = false;
+  private quality = new QualityGovernor();
 
   constructor(private canvas: HTMLCanvasElement, koiCount?: number) {
     this.world = new World(koiCount);
@@ -40,6 +43,12 @@ export class PondEngine {
     window.addEventListener('pointerdown', this.onPointerDown, { passive: true });
 
     this.resize();
+    // System monospace is usually ready at once; redraw the glyph atlas if it arrives late.
+    document.fonts?.ready.then(() => {
+      if (this.disposed) return;
+      this.renderer.refreshGlyphs();
+      if (!this.world.started || this.reducedMotion.matches) this.drawStill();
+    });
   }
 
   destroy() {
@@ -54,8 +63,10 @@ export class PondEngine {
   private resize() {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.quality.dprCap);
+    this.renderer.setLowDetail(this.quality.lowest);
     this.renderer.resize(rect.width, rect.height, dpr);
+    this.quality.settle(performance.now());
     this.world.resize(rect.width, rect.height);
     if (!this.world.started || this.reducedMotion.matches) this.drawStill();
   }
@@ -64,11 +75,13 @@ export class PondEngine {
     cancelAnimationFrame(this.raf);
     if (this.disposed || !this.visible || !this.world.started || this.reducedMotion.matches) return;
     this.last = performance.now();
+    this.quality.settle(this.last);
     this.raf = requestAnimationFrame(this.frame);
   }
 
   private frame = (now: number) => {
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const interval = now - this.last;
+    const dt = Math.min(0.1, interval / 1000);
     this.last = now;
     this.acc += dt;
     let steps = 0;
@@ -79,6 +92,8 @@ export class PondEngine {
     }
     if (steps === MAX_STEPS) this.acc = 0;
     this.renderer.render(this.world, dt);
+    // Struggling for a while? Drop the canvas resolution a step.
+    if (this.quality.sample(interval, now)) this.resize();
     this.raf = requestAnimationFrame(this.frame);
   };
 

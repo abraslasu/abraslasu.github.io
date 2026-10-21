@@ -12,6 +12,10 @@ import { angleDiff, clamp, current, rand, randInt, TAU } from './math';
 export const KOI_NODES = 16;
 /** Seconds a ripple stays on the surface. */
 export const RIPPLE_LIFE = 3.6;
+/** At most this many ripples spread at once; a newer drop fades out the oldest. */
+export const MAX_RIPPLES = 4;
+/** Seconds an evicted ripple takes to fade away. */
+export const RIPPLE_FADE = 0.35;
 
 /** Length of the biggest koi for a viewport whose shorter side is minSide. */
 const baseLength = (minSide: number) => clamp(minSide * 0.34, 130, 320);
@@ -53,6 +57,8 @@ export interface Ripple {
   x: number;
   y: number;
   t0: number;
+  /** When a newer drop pushed this one out (Infinity while it spreads freely). */
+  fadeStart: number;
 }
 
 export interface WorldEvent {
@@ -178,8 +184,18 @@ export class World {
   /** A drop hits the surface at (x, y). */
   drop(x: number, y: number) {
     this.events.push({ kind: 'drop', x, y });
-    this.ripples.push({ x, y, t0: this.time });
-    if (this.ripples.length > 16) this.ripples.shift();
+    // Keep at most MAX_RIPPLES spreading: rapid taps fade out the oldest
+    // instead of piling rings on top of each other.
+    let live = 0;
+    for (const r of this.ripples) if (r.fadeStart === Infinity) live++;
+    for (const r of this.ripples) {
+      if (live < MAX_RIPPLES) break;
+      if (r.fadeStart === Infinity) {
+        r.fadeStart = this.time;
+        live--;
+      }
+    }
+    this.ripples.push({ x, y, t0: this.time, fadeStart: Infinity });
 
     // The nearer half of the pond bolts away from the drop; the farther half
     // comes over to see what fell in.
@@ -204,7 +220,12 @@ export class World {
   step(dt: number) {
     this.time += dt;
     this.stepKoi(dt);
-    while (this.ripples.length && this.time - this.ripples[0].t0 > RIPPLE_LIFE) this.ripples.shift();
+    // Drop ripples that have spread out or finished fading, in place.
+    let keep = 0;
+    for (const r of this.ripples) {
+      if (this.time - r.t0 <= RIPPLE_LIFE && this.time - r.fadeStart <= RIPPLE_FADE) this.ripples[keep++] = r;
+    }
+    this.ripples.length = keep;
   }
 
   private stepKoi(dt: number) {
