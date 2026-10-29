@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0e">
+<title>Booth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap">
+<!--
+  Setup
+  1. Design each word in the Biotech Dots tool, turn on an animation, export JSON.
+  2. Save the files next to this page with the names used in CONFIG.prompts (dots-*.json).
+  3. Edit CONFIG in the script below: prompts, optional stamp and share text.
+  4. Deploy the site (npm run deploy). The page lives at /booth/.
+
+  Screens: pick (wheel over the live camera) → camera (dot filter) → result.
+  A photo chosen from the gallery goes through its own screen (still) before the result.
+-->
+<style>
+/* Layout: one full-screen canvas carries the camera or the chosen photo plus the dot graphic;
+   each screen is a layer of controls on top of it. */
+:root{
+  --ink:#0b0b0e;
+  --paper:#f4f3f8;
+  --grey:rgba(244,243,248,.42);
+  --line:rgba(244,243,248,.18);
+  --glass:rgba(11,11,14,.5);
+  --glass-strong:rgba(11,11,14,.82);
+  --neon:#8cfcbc;
+  --neon-ink:#012c45;
+  --item:56px;
+  --ui:"Inter","Helvetica Neue",Arial,sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--paper);font:15px/1.35 var(--ui);overflow:hidden;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--neon);outline-offset:3px}
+svg{display:block}
+
+#stage{position:fixed;inset:0;background:var(--ink);overflow:hidden}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none}
+#fx{position:absolute;inset:0;width:100%;height:100%;display:block}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .5s ease-out;z-index:6}
+#flash.on{opacity:.92;transition:none}
+#count{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:min(40vw,280px);color:var(--paper);text-shadow:0 8px 48px rgba(0,0,0,.55);pointer-events:none;z-index:6}
+#count span{display:block;animation:pop .9s ease-out both}
+@keyframes pop{0%{transform:scale(1.6);opacity:0}22%{transform:scale(1);opacity:1}100%{transform:scale(.82);opacity:0}}
+
+.screen{position:fixed;inset:0;z-index:5}
+.top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 12px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bottom{position:absolute;left:0;right:0;bottom:0;
+  padding-top:28px;
+  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 22px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px))}
+.icon{width:48px;height:48px;border-radius:50%;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid var(--line);display:grid;place-items:center;flex:none}
+.icon svg{width:22px;height:22px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:999px;padding:9px 14px;font-size:14px;min-width:0;max-width:calc(100% - 64px)}
+.pill small{color:var(--grey);font-weight:600;white-space:nowrap}
+.pill b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#camPill{flex:1;height:48px;max-width:none;justify-content:center;padding:0 16px}
+#camPill b{font-size:15px;text-align:center}
+#camPill.swap b{animation:swap .28s ease-out}
+@keyframes swap{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.neon{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:56px;padding:0 26px;border-radius:999px;background:var(--neon);color:var(--neon-ink);font-weight:800;font-size:18px;letter-spacing:.01em;box-shadow:0 0 28px rgba(140,252,188,.35)}
+.neon:active{transform:scale(.97)}
+.ghost{display:inline-flex;align-items:center;justify-content:center;min-height:56px;padding:0 22px;border-radius:999px;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-weight:700;font-size:16px}
+/* glass: translucent fill, strong blur, a lit top edge */
+.icon,.pill,.ghost{
+  background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.06));
+  -webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
+  border:1px solid rgba(255,255,255,.26);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.42),inset 0 -1px 0 rgba(255,255,255,.06),0 8px 24px rgba(0,0,0,.22);
+  transition:background-color .15s ease,transform .12s ease}
+.icon:active,.ghost:active{background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,.12));transform:scale(.96)}
+@media (prefers-reduced-motion:reduce){.icon:active,.ghost:active{transform:none}}
+#shareBtn{background:var(--neon);color:var(--neon-ink);border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 0 22px rgba(140,252,188,.4)}
+#shareBtn:active{background:var(--neon);filter:brightness(.92)}
+
+/* pick */
+#pick{background:rgba(8,8,11,.58);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#pick .logo{position:absolute;top:calc(env(safe-area-inset-top,0px) + 28px);left:50%;transform:translateX(-50%);height:40px;width:auto;pointer-events:none}
+#pick .label{font-size:18px;font-weight:700;letter-spacing:.01em;color:var(--paper)}
+.wheel{position:relative;width:100%;max-width:420px;height:calc(var(--item) * 5);overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 72%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 72%,transparent)}
+.wheel::-webkit-scrollbar{display:none}
+.wheel-pad{height:calc(var(--item) * 2)}
+.opt{height:var(--item);display:flex;align-items:center;justify-content:center;scroll-snap-align:center;cursor:pointer}
+.opt span{display:block;padding:7px 18px;border:2px solid transparent;border-radius:40px;color:var(--grey);font-size:22px;font-weight:600;white-space:nowrap;
+  transition:color .18s ease,border-color .18s ease;will-change:transform}
+.opt[aria-selected="true"] span{color:var(--paper);border-color:var(--paper)}
+.pick-row{position:absolute;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 22px);
+  display:flex;align-items:center;gap:12px;max-width:420px;margin:0 auto}
+.pick-row .neon{flex:1}
+.pick-row .icon{width:56px;height:56px}
+
+/* camera */
+.cambar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;max-width:440px;margin:0 auto}
+.cambar .icon:first-child{justify-self:start}
+.cambar .icon:last-child{justify-self:end}
+#shutter{width:84px;height:84px;border-radius:50%;border:5px solid var(--paper);display:grid;place-items:center}
+#shutter::after{content:"";width:62px;height:62px;border-radius:50%;background:var(--paper);transition:transform .12s}
+#shutter:active::after{transform:scale(.86)}
+#nocam{position:absolute;inset:0;display:grid;place-items:center;padding:24px}
+#nocam .card{background:var(--glass-strong);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:22px 20px;max-width:340px;text-align:center;display:flex;flex-direction:column;gap:12px}
+#nocam h2{font-weight:700;font-size:17px;margin:0;text-wrap:balance}
+#nocam p{margin:0 0 6px;color:var(--grey);font-size:14px}
+
+/* still (photo from the gallery) */
+.stillbar{display:flex;gap:12px;max-width:440px;margin:0 auto}
+.stillbar > *{flex:1}
+
+/* result */
+#result{background:var(--ink)}
+#shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#resultBar{z-index:2;background:linear-gradient(to bottom,rgba(11,11,14,.7),rgba(11,11,14,0));padding-bottom:26px}
+#resultBar .group{display:flex;gap:10px}
+
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 130px);transform:translateX(-50%) translateY(10px);background:var(--paper);color:var(--ink);padding:11px 16px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:20;pointer-events:none;max-width:88vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){#count span{animation-duration:.6s}#toast,.opt span{transition:none}.neon:active{transform:none}#camPill.swap b{animation:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="cam" autoplay playsinline muted></video>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="count" hidden></div>
+  <div id="flash"></div>
+</div>
+
+<!-- 1. pick a prompt over the live camera -->
+<section class="screen" id="pick" aria-labelledby="pickLabel">
+  <img class="logo" src="logo.svg" alt="OneHealth Bootcamp" width="183" height="48">
+  <div class="label" id="pickLabel"></div>
+  <div class="wheel" id="wheel" role="listbox" tabindex="0" aria-labelledby="pickLabel"></div>
+  <div class="pick-row">
+    <button class="icon" id="shuffleBtn" type="button" aria-label="Shuffle" title="Shuffle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+    </button>
+    <button class="neon" id="readyBtn" type="button">Ready?</button>
+    <button class="icon" id="pickFlip" type="button" aria-label="Reverse camera" title="Reverse camera" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11A8 8 0 0 0 5.6 6.2L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.4 4.8L20 16"/><path d="M20 20v-4h-4"/></svg>
+    </button>
+  </div>
+</section>
+
+<!-- 2. camera with the dot filter -->
+<section class="screen" id="camera" aria-label="Camera" hidden>
+  <div class="top" id="camTop">
+    <div class="pill" id="camPill" aria-live="polite"><b class="js-prompt"></b></div>
+    <button class="icon" id="camShuffle" type="button" aria-label="Shuffle prompt" title="Shuffle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+    </button>
+  </div>
+  <div id="nocam" hidden>
+    <div class="card">
+      <h2>No live camera here</h2>
+      <p id="nocamMsg">Take a photo with your phone's camera or pick one from your gallery, and the graphic goes on top.</p>
+      <button class="neon" id="nativeBtn" type="button">Take a photo</button>
+      <button class="ghost" id="nocamGallery" type="button">Choose from gallery</button>
+    </div>
+  </div>
+  <div class="bottom" id="camBottom">
+    <div class="cambar">
+      <button class="icon" id="galleryBtn" type="button" aria-label="Choose from gallery" title="Gallery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg>
+      </button>
+      <button id="shutter" type="button" aria-label="Take photo"></button>
+      <button class="icon" id="flipBtn" type="button" aria-label="Reverse camera" title="Reverse camera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11A8 8 0 0 0 5.6 6.2L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.4 4.8L20 16"/><path d="M20 20v-4h-4"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- 2b. a photo from the gallery, with the filter, before it becomes the result -->
+<section class="screen" id="still" aria-label="Your photo with the filter" hidden>
+  <div class="top" id="stillTop">
+    <button class="icon" id="stillBack" type="button" aria-label="Back to camera" title="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+    </button>
+    <div class="pill"><small class="js-label"></small><b class="js-prompt"></b></div>
+  </div>
+  <div class="bottom" id="stillBottom">
+    <div class="stillbar">
+      <button class="ghost" id="stillOther" type="button">Another photo</button>
+      <button class="neon" id="stillUse" type="button">Use this</button>
+    </div>
+  </div>
+</section>
+
+<!-- 3. the result -->
+<section class="screen" id="result" aria-label="Your photo" hidden>
+  <img id="shot" alt="Your photo with the filter">
+  <div class="top" id="resultBar">
+    <div class="group">
+      <button class="icon" id="shareBtn" type="button" aria-label="Share" title="Share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+      </button>
+      <button class="icon" id="retakeBtn" type="button" aria-label="Retake photo" title="Retake">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+      <button class="icon" id="saveBtn" type="button" aria-label="Save to gallery" title="Save to gallery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 8v7"/><path d="m8.5 11.5 3.5 3.5 3.5-3.5"/></svg>
+      </button>
+    </div>
+    <button class="icon" id="hideBar" type="button" aria-label="Hide buttons" title="Hide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <button class="sr" id="showBar" type="button">Show buttons</button>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="galleryInput" accept="image/*" hidden>
+<input type="file" id="nativeInput" accept="image/*" capture="user" hidden>
+
+<script>
+/* ===== Edit this block for your event. Everything else is machinery. ===== */
+const CONFIG = {
+  label: 'Show us:',
+  prompts: [                        // wheel options; each one loads its own dot graphic
+    { text: 'Favourite team pitch',    dots: 'dots-demoday.json' },
+    { text: 'Who you came with',       dots: 'dots-innovate.json' },
+    { text: 'A new friend you made',   dots: 'dots-network.json' },
+    { text: 'Something you take home', dots: 'dots-1health.json' },
+    { text: 'Your best candid face',   dots: 'dots-biotech.json' }
+  ],
+  stamp: '',                        // optional text printed bottom left on every photo, e.g. 'DEMODAY 2026   #hashtag'
+  shareText: '',                    // optional text handed to the share sheet (Instagram ignores it)
+  place: 'bottom',                  // 'bottom' or 'top': where the dot graphic sits in the frame
+  artWidth: 0.92,                   // graphic width, as a share of the frame width
+  artMaxHeight: 0.4,                // graphic height cap, as a share of the frame height
+  timer: 3,                         // countdown in seconds before a camera photo; 0 turns it off
+  maxSide: 1920                     // longest side of the saved photo, in px
+};
+/* ======================================================================== */
+
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), cam = $('#cam'), fx = $('#fx'), fctx = fx.getContext('2d', { alpha: false });
+const count = $('#count'), flashEl = $('#flash'), toastEl = $('#toast');
+const screens = { pick: $('#pick'), camera: $('#camera'), still: $('#still'), result: $('#result') };
+const wheel = $('#wheel');
+const nocam = $('#nocam'), nocamMsg = $('#nocamMsg'), flipBtn = $('#flipBtn'), shutter = $('#shutter');
+const shot = $('#shot'), resultBar = $('#resultBar'), showBar = $('#showBar');
+const galleryInput = $('#galleryInput'), nativeInput = $('#nativeInput');
+
+const PAPER = '#f4f3f8';
+const UI_FONT = '"Inter", "Helvetica Neue", Arial, sans-serif';
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let screen = 'pick', idx = 0, source = 'camera';
+let sw = 0, sh = 0, dpr = 1, raf = 0;
+let stream = null, camOn = false, facing = 'user', mirror = true;
+let stillImg = null, busy = false, lastBlob = null, lastFile = null, shotUrl = '';
+
+/* ---------- dot graphics: Biotech Dots JSON, animated exactly like its SVG export ---------- */
+const ARTS = {};             // file -> prepared graphic, or a pending promise
+let ART = null, artT0 = performance.now();
+function bezier(x1, y1, x2, y2){
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  return x => {
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const fx = ((ax * t + bx) * t + cx) * t - x, d = (3 * ax * t + 2 * bx) * t + cx;
+      if (Math.abs(fx) < 1e-5 || !d) break;
+      t -= fx / d;
+    }
+    return ((ay * t + by) * t + cy) * t;
+  };
+}
+const easeInOut = bezier(0.42, 0, 0.58, 1);
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+function springAt(bounce, p){
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  const z = Math.max(0.3, 1 - bounce);
+  if (z >= 0.999) { const w = 9; return 1 - Math.exp(-w * p) * (1 + w * p); }
+  const w = 6.9 / z, wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * p) * (Math.cos(wd * p) + (z * w / wd) * Math.sin(wd * p));
+}
+function prepArt(j){
+  const s = j.settings || {}, a = j.animation, mode = a ? a.mode : null, lit = mode === 'lit';
+  const items = [];
+  for (const d of j.dots) {
+    const bits = d.versions ? d.versions.reduce((b, v, i) => b | (v << i), 0) : 0;
+    if (lit ? bits === 0 : !d.visible) continue;
+    items.push({
+      x: d.x, y: d.y, r: d.r, o: d.opacity, color: d.color, path: d.path ? new Path2D(d.path) : null,
+      bits, ad: d.delay || 0, dx: d.fromX || 0, dy: d.fromY || 0, bd: d.breatheDelay || 0, ld: d.litDelay || 0
+    });
+  }
+  return { W: j.width, H: j.height, items, mode, lit, intro: mode === 'build' || mode === 'assemble', breathe: !!(a && a.breathe), s, blur: s.blur || 0 };
+}
+function loadArt(file){
+  if (!ARTS[file]) {
+    ARTS[file] = fetch(file, { cache: 'no-cache' })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(j => (ARTS[file] = prepArt(j)))
+      .catch(() => { delete ARTS[file]; return null; });
+  }
+  return Promise.resolve(ARTS[file]);
+}
+function dotState(A, d, t, o){
+  o.s = 1; o.fo = 1; o.tx = 0; o.ty = 0;
+  const S = A.s;
+  if (A.lit) {
+    if (REDUCE) { o.fo = d.bits & 1; return; }
+    const K = S.litVersions, h = S.litHold, T = K * h, fade = Math.min(S.litFade, h * 0.5);
+    const local = (((t - d.ld) % T) + T) % T, v = Math.min(K - 1, Math.floor(local / h)), into = local - v * h;
+    const a = (d.bits >> v) & 1, b = (d.bits >> ((v + 1) % K)) & 1;
+    const val = into > h - fade ? a + (b - a) * easeInOut((into - (h - fade)) / fade) : a;
+    o.s = 0.4 + 0.6 * val; o.fo = val;
+    return;
+  }
+  if (REDUCE || !A.mode) return;
+  if (A.intro) {
+    const x = springAt(S.bounce / 100, clamp01((t - d.ad) / S.inDur));
+    o.fo = clamp01(x);
+    if (A.mode === 'build') o.s = Math.max(0, x);
+    else { o.tx = d.dx * (1 - x); o.ty = d.dy * (1 - x); }
+  }
+  if (A.breathe && (!A.intro || t >= d.bd)) {
+    const ph = ((((t - d.bd) / S.brPeriod) % 1) + 1) % 1;
+    const w = ph < 0.5 ? easeInOut(ph * 2) : 1 - easeInOut((ph - 0.5) * 2);
+    const amp = S.brAmp / 100;
+    o.s = 1 + amp * w; o.fo = 1 - Math.min(amp, 0.55) * w;
+  }
+}
+const _o = {};
+// draws the graphic inside the frame (fx, fy, fw, fh); topFrac/botFrac keep it clear of the controls
+function drawArt(ctx, B, fx0, fy0, fw, fh, topFrac, botFrac){
+  if (!ART) return;
+  const k = Math.min(fw * CONFIG.artWidth / ART.W, fh * CONFIG.artMaxHeight / ART.H);
+  const x0 = fx0 + (fw - ART.W * k) / 2;
+  const y0 = CONFIG.place === 'top' ? fy0 + fh * topFrac : fy0 + fh * (1 - botFrac) - ART.H * k;
+  const t = (performance.now() - artT0) / 1000;
+  ctx.save();
+  if (ART.blur > 0) ctx.filter = `blur(${ART.blur * k * B}px)`;
+  for (let i = 0; i < ART.items.length; i++) {
+    const d = ART.items[i];
+    dotState(ART, d, t, _o);
+    const a = d.o * clamp01(_o.fo);
+    if (a <= 0.002 || _o.s <= 0) continue;
+    const s = k * _o.s;
+    ctx.setTransform(B * s, 0, 0, B * s, B * (x0 + k * (d.x + _o.tx) - s * d.x), B * (y0 + k * (d.y + _o.ty) - s * d.y));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = d.color;
+    if (d.path) ctx.fill(d.path);
+    else { ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.2832); ctx.fill(); }
+  }
+  ctx.restore();
+}
+function drawStamp(ctx, B, fx0, fy0, fw, fh){
+  if (!CONFIG.stamp) return;
+  const pad = 0.05 * fw, size = 0.028 * fw;
+  ctx.save();
+  ctx.setTransform(B, 0, 0, B, 0, 0);
+  ctx.font = `700 ${size}px ${UI_FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0.08em';
+  ctx.fillStyle = PAPER;
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = size * 0.8 * B; ctx.shadowOffsetY = size * 0.1 * B;
+  ctx.fillText(CONFIG.stamp.toUpperCase(), fx0 + pad, fy0 + fh - pad);
+  ctx.restore();
+}
+
+/* ---------- frames: camera fills the screen, a gallery photo keeps its own shape ---------- */
+function drawCover(ctx, B, src, sw0, sh0, fx0, fy0, fw, fh, flip){
+  const scale = Math.max(fw / sw0, fh / sh0);
+  const cw = fw / scale, ch = fh / scale, cx = (sw0 - cw) / 2, cy = (sh0 - ch) / 2;
+  ctx.save();
+  ctx.setTransform(B, 0, 0, B, 0, 0);
+  if (flip) { ctx.translate(fx0 * 2 + fw, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(src, cx, cy, cw, ch, fx0, fy0, fw, fh);
+  ctx.restore();
+}
+function camReady(){ return camOn && cam.readyState >= 2 && cam.videoWidth; }
+// fractions of the live screen taken by the top and bottom controls of a given screen
+function insets(topEl, botEl){
+  const t = topEl ? (topEl.getBoundingClientRect().bottom + 10) / sh : 0.12;
+  const b = botEl ? (botEl.getBoundingClientRect().height - 6) / sh : 0.2;
+  return [t, b];
+}
+const STILL_INSETS = [0.05, 0.07];
+function stillRect(){
+  const [t, b] = insets($('#stillTop'), $('#stillBottom'));
+  const ax = 16, ay = sh * t, aw = sw - 32, ah = sh * (1 - t - b);
+  const r = stillImg.naturalWidth / stillImg.naturalHeight;
+  const w = Math.min(aw, ah * r), h = w / r;
+  return { x: ax + (aw - w) / 2, y: ay + (ah - h) / 2, w, h };
+}
+function renderLive(){
+  const B = dpr;
+  fctx.setTransform(1, 0, 0, 1, 0, 0);
+  fctx.fillStyle = '#0b0b0e';
+  fctx.fillRect(0, 0, fx.width, fx.height);
+  if (screen === 'still' && stillImg) {
+    const r = stillRect();
+    drawCover(fctx, B, stillImg, stillImg.naturalWidth, stillImg.naturalHeight, r.x, r.y, r.w, r.h, false);
+    drawArt(fctx, B, r.x, r.y, r.w, r.h, STILL_INSETS[0], STILL_INSETS[1]);
+    drawStamp(fctx, B, r.x, r.y, r.w, r.h);
+    return;
+  }
+  if (camReady()) drawCover(fctx, B, cam, cam.videoWidth, cam.videoHeight, 0, 0, sw, sh, mirror);
+  else {
+    const g = fctx.createLinearGradient(0, 0, fx.width * 0.4, fx.height);
+    g.addColorStop(0, '#16151c'); g.addColorStop(1, '#24212d');
+    fctx.fillStyle = g; fctx.fillRect(0, 0, fx.width, fx.height);
+  }
+  if (screen === 'camera') {
+    const [t, b] = insets($('#camTop'), $('#camBottom'));
+    drawArt(fctx, B, 0, 0, sw, sh, t, b);
+    drawStamp(fctx, B, 0, 0, sw, sh);
+  }
+}
+function resize(){
+  const r = stage.getBoundingClientRect();
+  sw = Math.max(1, r.width); sh = Math.max(1, r.height);
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (sw * sh * dpr * dpr > 2.6e6) dpr = Math.sqrt(2.6e6 / (sw * sh));
+  fx.width = Math.round(sw * dpr); fx.height = Math.round(sh * dpr);
+}
+function loop(){ raf = requestAnimationFrame(loop); renderLive(); }
+function startLoop(){ if (!raf) raf = requestAnimationFrame(loop); }
+function stopLoop(){ if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+/* ---------- screens ---------- */
+function show(name){
+  screen = name;
+  Object.entries(screens).forEach(([k, el]) => { el.hidden = k !== name; });
+  if (name === 'result') stopLoop(); else startLoop();
+  if (name === 'camera') { nocam.hidden = camOn; updateCamControls(); }
+  if (name === 'pick') selectOpt(idx, false);
+}
+function updateCamControls(){
+  shutter.hidden = !camOn;
+  syncFlip();
+}
+function fillPromptLabels(){
+  document.querySelectorAll('.js-label').forEach(el => { el.textContent = CONFIG.label; });
+  document.querySelectorAll('.js-prompt').forEach(el => { el.textContent = CONFIG.prompts[idx].text; });
+}
+
+/* ---------- 1. the wheel ---------- */
+let itemH = 56, wheelRaf = 0;
+function buildWheel(){
+  $('#pickLabel').textContent = CONFIG.label;
+  wheel.innerHTML = '<div class="wheel-pad" aria-hidden="true"></div>' +
+    CONFIG.prompts.map((p, i) => `<div class="opt" role="option" id="opt-${i}" data-i="${i}" aria-selected="false"><span>${p.text.replace(/</g, '&lt;')}</span></div>`).join('') +
+    '<div class="wheel-pad" aria-hidden="true"></div>';
+  itemH = wheel.querySelector('.opt').getBoundingClientRect().height || 56;
+}
+function nearest(){ return Math.max(0, Math.min(CONFIG.prompts.length - 1, Math.round(wheel.scrollTop / itemH))); }
+function paintWheel(){
+  wheelRaf = 0;
+  const center = wheel.scrollTop + wheel.clientHeight / 2;
+  const opts = wheel.querySelectorAll('.opt');
+  const sel = nearest();
+  for (let i = 0; i < opts.length; i++) {
+    const el = opts[i], d = (el.offsetTop + itemH / 2 - center) / itemH, ad = Math.min(Math.abs(d), 2.6);
+    el.setAttribute('aria-selected', String(i === sel));
+    el.firstChild.style.transform = REDUCE ? '' : `perspective(420px) rotateX(${(-d * 20).toFixed(1)}deg) scale(${(1 - ad * 0.07).toFixed(3)})`;
+    el.style.opacity = (1 - ad * 0.22).toFixed(3);
+  }
+  if (sel !== idx) { idx = sel; loadArt(CONFIG.prompts[idx].dots); }
+  wheel.setAttribute('aria-activedescendant', 'opt-' + sel);
+}
+function selectOpt(i, smooth){
+  i = (i + CONFIG.prompts.length) % CONFIG.prompts.length;
+  wheel.scrollTo({ top: i * itemH, behavior: smooth && !REDUCE ? 'smooth' : 'auto' });
+  if (!smooth || REDUCE) paintWheel();
+}
+wheel.addEventListener('scroll', () => { if (!wheelRaf) wheelRaf = requestAnimationFrame(paintWheel); }, { passive: true });
+wheel.addEventListener('click', e => { const o = e.target.closest('.opt'); if (o) selectOpt(+o.dataset.i, true); });
+wheel.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); selectOpt(nearest() + 1, true); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); selectOpt(nearest() - 1, true); }
+  if (e.key === 'Enter') { e.preventDefault(); goCamera(); }
+});
+function randomOther(i){
+  const n = CONFIG.prompts.length;
+  let j = Math.floor(Math.random() * (n - 1));
+  if (j >= i) j++;
+  return j;
+}
+$('#shuffleBtn').addEventListener('click', () => selectOpt(randomOther(nearest()), true));
+$('#readyBtn').addEventListener('click', () => goCamera());
+
+/* ---------- 2. camera ---------- */
+async function goCamera(){
+  idx = nearest();
+  fillPromptLabels();
+  const art = await loadArt(CONFIG.prompts[idx].dots);
+  if (!art) toast('The graphic did not load. The photo will be taken without it.');
+  ART = art; artT0 = performance.now();
+  source = 'camera';
+  show('camera');
+}
+function stopCam(){ if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cam.srcObject = null; camOn = false; }
+let camCount = 0, switching = false;
+// ask for the front or back camera explicitly; a device without that one falls back to whichever it has
+async function openStream(md, face){
+  const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  try { return await md.getUserMedia({ video: Object.assign({ facingMode: { exact: face } }, size), audio: false }); }
+  catch (e) {
+    if (e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError' || e.name === 'NotReadableError')) {
+      return md.getUserMedia({ video: Object.assign({ facingMode: face }, size), audio: false });
+    }
+    throw e;
+  }
+}
+async function countCams(md){
+  try { camCount = (await md.enumerateDevices()).filter(d => d.kind === 'videoinput').length; }
+  catch (e) { camCount = 0; }
+}
+// the reverse button shows only when there is a second camera to switch to (0 = unknown, keep it)
+function syncFlip(){
+  const can = camOn && camCount !== 1;
+  $('#pickFlip').hidden = !can;
+  flipBtn.hidden = !can;
+}
+async function startCam(){
+  const md = navigator.mediaDevices;
+  if (!md || !md.getUserMedia) { camFailed('The live camera needs this page over https. Take a photo with your phone camera or pick one from your gallery.'); return; }
+  try {
+    stopCam();                      // phones open one camera at a time, so release the old one first
+    stream = await openStream(md, facing);
+    cam.srcObject = stream;
+    await cam.play();
+    // trust what the phone actually opened, so only the front camera is mirrored
+    const track = stream.getVideoTracks()[0];
+    const got = track && track.getSettings ? track.getSettings().facingMode : '';
+    if (got === 'user' || got === 'environment') facing = got;
+    camOn = true; mirror = facing === 'user';
+    await countCams(md);
+    syncFlip();
+    if (screen === 'camera') { nocam.hidden = true; updateCamControls(); }
+  } catch (e) {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    camFailed(denied ? 'Camera access is off for this page. Allow it in your browser settings, or take a photo with your phone camera.'
+                     : 'No live camera found. Take a photo with your phone camera or pick one from your gallery.');
+  }
+}
+function camFailed(msg){
+  camOn = false; nocamMsg.textContent = msg;
+  syncFlip();
+  if (screen === 'camera') { nocam.hidden = false; updateCamControls(); }
+}
+// shuffle from the camera: new prompt, new word, the intro (if any) plays again
+$('#camShuffle').addEventListener('click', async () => {
+  if (busy) return;
+  const j = randomOther(idx);
+  idx = j;
+  fillPromptLabels();
+  const pill = $('#camPill');
+  pill.classList.remove('swap'); void pill.offsetWidth; pill.classList.add('swap');
+  const art = await loadArt(CONFIG.prompts[j].dots);
+  if (idx !== j) return;
+  if (!art) toast('The graphic did not load. Try another shuffle.');
+  ART = art; artT0 = performance.now();
+});
+async function flipCamera(){
+  if (switching || busy) return;
+  switching = true;
+  const before = facing, want = facing === 'user' ? 'environment' : 'user';
+  facing = want;
+  await startCam();
+  if (!camOn) { facing = before; await startCam(); toast('Could not switch the camera.'); }
+  else if (facing !== want) toast(want === 'environment' ? 'This device has no back camera.' : 'This device has no front camera.');
+  switching = false;
+}
+flipBtn.addEventListener('click', flipCamera);
+$('#pickFlip').addEventListener('click', flipCamera);
+$('#galleryBtn').addEventListener('click', () => galleryInput.click());
+$('#nocamGallery').addEventListener('click', () => galleryInput.click());
+$('#nativeBtn').addEventListener('click', () => nativeInput.click());
+shutter.addEventListener('click', takePhoto);
+
+function countdown(){
+  return new Promise(res => {
+    let n = CONFIG.timer;
+    count.hidden = false;
+    const tick = () => {
+      if (n <= 0) { count.hidden = true; count.textContent = ''; res(); return; }
+      count.innerHTML = ''; const s = document.createElement('span'); s.textContent = n; count.appendChild(s);
+      n--; setTimeout(tick, 900);
+    };
+    tick();
+  });
+}
+function flash(){ flashEl.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => flashEl.classList.remove('on'))); }
+async function takePhoto(){
+  if (busy || !camReady()) return;
+  busy = true;
+  try {
+    if (CONFIG.timer > 0) await countdown();
+    flash();
+    const vw = cam.videoWidth, vh = cam.videoHeight;
+    const scale = Math.max(sw / vw, sh / vh);
+    let W = Math.round(sw / scale), H = Math.round(sh / scale);
+    const k = Math.min(1, CONFIG.maxSide / Math.max(W, H));
+    W = Math.max(2, Math.round(W * k)); H = Math.max(2, Math.round(H * k));
+    const [t, b] = insets($('#camTop'), $('#camBottom'));
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    drawCover(ctx, 1, cam, vw, vh, 0, 0, W, H, mirror);
+    drawArt(ctx, 1, 0, 0, W, H, t, b);
+    drawStamp(ctx, 1, 0, 0, W, H);
+    await openResult(out);
+  } catch (e) {
+    toast('The photo did not come out. Try again.');
+  } finally { busy = false; }
+}
+
+/* ---------- 2b. a photo from the gallery ---------- */
+function loadStill(file){
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => { stillImg = img; source = 'gallery'; artT0 = performance.now(); show('still'); };
+  img.onerror = () => toast('That file could not be opened as a photo.');
+  img.src = URL.createObjectURL(file);
+}
+galleryInput.addEventListener('change', () => { loadStill(galleryInput.files[0]); galleryInput.value = ''; });
+nativeInput.addEventListener('change', () => { loadStill(nativeInput.files[0]); nativeInput.value = ''; });
+$('#stillBack').addEventListener('click', () => { artT0 = performance.now(); show('camera'); });
+$('#stillOther').addEventListener('click', () => galleryInput.click());
+$('#stillUse').addEventListener('click', async () => {
+  if (busy || !stillImg) return;
+  busy = true;
+  try {
+    const nw = stillImg.naturalWidth, nh = stillImg.naturalHeight, k = Math.min(1, CONFIG.maxSide / Math.max(nw, nh));
+    const W = Math.max(2, Math.round(nw * k)), H = Math.max(2, Math.round(nh * k));
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    drawCover(ctx, 1, stillImg, nw, nh, 0, 0, W, H, false);
+    drawArt(ctx, 1, 0, 0, W, H, STILL_INSETS[0], STILL_INSETS[1]);
+    drawStamp(ctx, 1, 0, 0, W, H);
+    flash();
+    await openResult(out);
+  } catch (e) {
+    toast('The photo did not come out. Try again.');
+  } finally { busy = false; }
+});
+
+/* ---------- 3. result ---------- */
+async function openResult(canvas){
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+  if (!blob) throw new Error('no blob');
+  lastBlob = blob;
+  const slug = CONFIG.prompts[idx].dots.replace(/^dots-|\.json$/g, '') || 'booth';
+  lastFile = new File([blob], `${slug}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  if (shotUrl) URL.revokeObjectURL(shotUrl);
+  shotUrl = URL.createObjectURL(blob); shot.src = shotUrl;
+  $('#retakeBtn').setAttribute('aria-label', source === 'gallery' ? 'Choose another photo' : 'Retake photo');
+  setBar(true);
+  show('result');
+}
+function setBar(on){ resultBar.hidden = !on; showBar.hidden = on; }
+function canShareFiles(file){
+  try { return !!(navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) { return false; }
+}
+$('#shareBtn').addEventListener('click', async () => {
+  if (!lastFile) return;
+  if (canShareFiles(lastFile)) {
+    try { await navigator.share(CONFIG.shareText ? { files: [lastFile], text: CONFIG.shareText } : { files: [lastFile] }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  saveNow();
+  toast('Sharing is not available here, so the photo was saved instead.');
+});
+function saveNow(){
+  if (!lastBlob) return;
+  const a = document.createElement('a');
+  a.href = shotUrl; a.download = lastFile.name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$('#saveBtn').addEventListener('click', () => { saveNow(); toast('Saved.'); });
+$('#retakeBtn').addEventListener('click', () => {
+  if (source === 'gallery') { galleryInput.click(); return; }
+  artT0 = performance.now();
+  show('camera');
+});
+$('#hideBar').addEventListener('click', () => { setBar(false); showBar.focus(); });
+showBar.addEventListener('click', () => setBar(true));
+shot.addEventListener('click', () => setBar(resultBar.hidden));
+
+let toastTimer = 0;
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('on'), 2800);
+}
+
+window.addEventListener('resize', () => { resize(); if (screen === 'pick') selectOpt(idx, false); });
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopLoop(); else if (screen !== 'result') startLoop(); });
+
+(function init(){
+  resize();
+  buildWheel();
+  idx = Math.floor(Math.random() * CONFIG.prompts.length);
+  selectOpt(idx, false);
+  fillPromptLabels();
+  CONFIG.prompts.forEach(p => loadArt(p.dots));
+  show('pick');
+  startCam();
+})();
+</script>
+</body>
+</html>
