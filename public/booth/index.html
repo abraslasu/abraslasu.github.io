@@ -117,7 +117,9 @@ svg{display:block}
 #result{background:var(--ink)}
 #shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 #resultBar{z-index:2;background:linear-gradient(to bottom,rgba(11,11,14,.7),rgba(11,11,14,0));padding-bottom:26px}
+#resultBar{justify-content:center}
 #resultBar .group{display:flex;gap:10px}
+#resultBar #closeResult{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px)}
 
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 130px);transform:translateX(-50%) translateY(10px);background:var(--paper);color:var(--ink);padding:11px 16px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:20;pointer-events:none;max-width:88vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%)}
@@ -194,7 +196,7 @@ svg{display:block}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 8v7"/><path d="m8.5 11.5 3.5 3.5 3.5-3.5"/></svg>
       </button>
     </div>
-    <button class="icon" id="hideBar" type="button" aria-label="Hide buttons" title="Hide">
+    <button class="icon" id="closeResult" type="button" aria-label="Back to prompts" title="Back to prompts">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
     </button>
   </div>
@@ -700,7 +702,7 @@ $('#retakeBtn').addEventListener('click', () => {
   if (source === 'gallery') { galleryInput.click(); return; }
   show('camera');
 });
-$('#hideBar').addEventListener('click', () => { setBar(false); showBar.focus(); });
+$('#closeResult').addEventListener('click', () => show('pick'));
 showBar.addEventListener('click', () => setBar(true));
 shot.addEventListener('click', () => setBar(resultBar.hidden));
 
