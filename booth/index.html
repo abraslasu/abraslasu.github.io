@@ -212,6 +212,7 @@ svg{display:block}
 /* ===== Edit this block for your event. Everything else is machinery. ===== */
 const CONFIG = {
   label: 'Show us:',
+  labelIcon: '📸',                // shown before the label on the first screen only; '' leaves it out
   prompts: [                        // wheel options; each one loads its own dot graphic
     { text: 'Favourite team pitch',    dots: 'dots-demoday.json' },
     { text: 'Who you came with',       dots: 'dots-innovate.json' },
@@ -486,7 +487,14 @@ function fillPromptLabels(){
 /* ---------- 1. the wheel ---------- */
 let itemH = 56, wheelRaf = 0;
 function buildWheel(){
-  $('#pickLabel').textContent = CONFIG.label;
+  const pickLabel = $('#pickLabel');
+  pickLabel.textContent = CONFIG.label;
+  if (CONFIG.labelIcon) {
+    const icon = document.createElement('span');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = CONFIG.labelIcon + ' ';
+    pickLabel.prepend(icon);
+  }
   wheel.innerHTML = '<div class="wheel-pad" aria-hidden="true"></div>' +
     CONFIG.prompts.map((p, i) => `<div class="opt" role="option" id="opt-${i}" data-i="${i}" aria-selected="false"><span>${p.text.replace(/</g, '&lt;')}</span></div>`).join('') +
     '<div class="wheel-pad" aria-hidden="true"></div>';
